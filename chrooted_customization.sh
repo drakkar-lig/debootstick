@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 set -x
-PACKAGES="linux-image-virtual lvm2 busybox-static gdisk grub-pc"
+PACKAGES="linux-image-generic lvm2 busybox-static gdisk grub-pc"
 
 if [ "$1" = "--debug" ]
 then
