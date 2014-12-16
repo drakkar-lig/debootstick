@@ -88,7 +88,6 @@ sed -e 's/quick_boot=.*/quick_boot=0/' etc/grub.d/10_linux > \
 chmod +x etc/grub.d/09_linux_custom
 rm etc/grub.d/10_linux
 
-update-grub
 rm boot/grub/device.map
 
 umount /sys /dev/pts /proc /dev
