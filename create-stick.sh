@@ -253,18 +253,18 @@ losetup -d $work_image_loop_device
 losetup -d $final_image_loop_device
 cd $ORIG_DIR
 mkdir -p out
+
 cp $DD_FILE out/
-if [ "$DEBUG" = "1" ]
-then	# simulate copy on a larger USB stick by increasing the file size
-	truncate -s $USB_SAMPLE_STICK_SIZE out/disk.dd
-fi
 chmod a+rw out/disk.dd
 umount -lf $TMP_DIR
 rm -rf $TMP_DIR
 echo out/disk.dd ready.
 
-echo "test it (BIOS):"
+echo " ---- to test it with kvm: ----"
+echo " * simulate copy on a larger USB stick by increasing the file size"
+echo "truncate -s $USB_SAMPLE_STICK_SIZE out/disk.dd"
+echo " * test it (BIOS):"
 echo "kvm -hda out/disk.dd -nographic"
-echo "test it (EFI):"
+echo " * test it (EFI):"
 echo "kvm -bios /usr/share/qemu/OVMF.fd -hda out/disk.dd -nographic; reset"
 
