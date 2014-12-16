@@ -20,13 +20,18 @@ done
 mkdir /tmp/os/old-root
 pivot_root /tmp/os /tmp/os/old-root
 
+# find device currently being booted
+source /dbstck.conf     # get LVM_VG value
+set -- $(pvs | grep $LVM_VG)
+device=$(echo $1 | sed -e "s/.$//")
+
 # occupy available space
 echo "Extending disk space..."
-sgdisk -e -d 3 -n 3:0:0 -t 3:8e00 /dev/sda
-partx -u /dev/sda
-pvresize /dev/sda3
-lvextend -l+100%FREE /dev/SN_VG/SN_ROOT
-resize2fs /dev/SN_VG/SN_ROOT
+sgdisk -e -d 3 -n 3:0:0 -t 3:8e00 ${device}
+partx -u ${device}
+pvresize ${device}3
+lvextend -l+100%FREE /dev/$LVM_VG/ROOT
+resize2fs /dev/$LVM_VG/ROOT
 
 # extract the squashfs image contents
 echo "Uncompressing..."

@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # TODO: save /dev/sda3
+# TODO: determine stick and internal disk devices
 
 # copy the partition scheme
 sgdisk -Z /dev/sdb
@@ -25,8 +26,8 @@ pvmove /dev/sda3    # may take a little time
 vgreduce SN_VG /dev/sda3
 
 # fill the space available
-lvextend -l+100%FREE /dev/SN_VG/SN_ROOT
-resize2fs /dev/SN_VG/SN_ROOT
+lvextend -l+100%FREE /dev/SN_VG/ROOT
+resize2fs /dev/SN_VG/ROOT
 
 # install the bootloader
 grub-install /dev/sdb

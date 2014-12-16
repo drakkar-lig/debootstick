@@ -15,6 +15,8 @@ then
 fi
 ORIG_DIR=$(cd $(dirname $0); pwd)
 ORIG_TREE="$(cd "$1"; pwd)"
+STICK_OS_ID=$(uuidgen)
+LVM_VG="DBSTCK-$STICK_OS_ID"
 TMP_DIR=$(mktemp -d)
 DD_FILE=$TMP_DIR/disk.dd
 TMP_DD_FILE=$TMP_DIR/tmp.disk.dd
@@ -45,7 +47,7 @@ make_ext4_fs()
     # possible this 'small' filesystem to a much larger device). 
     # Since this option is not handled by grub, it prevents the 
     # system from booting properly.
-    mkfs.ext4 -q -L SN_ROOT -T default $1
+    mkfs.ext4 -q -L ROOT -T default $1
 }
 
 format_stick()
@@ -132,9 +134,9 @@ set -- $(kpartx -l $work_image_loop_device | awk '{ print "/dev/mapper/"$1 }')
 work_image_biosboot_dev=$2
 sn_lvm_dev=$3
 pvcreate $sn_lvm_dev
-vgcreate SN_VG $sn_lvm_dev
-lvcreate -n SN_ROOT -l 100%FREE SN_VG
-sn_root_dev=/dev/SN_VG/SN_ROOT
+vgcreate $LVM_VG $sn_lvm_dev
+lvcreate -n ROOT -l 100%FREE ${LVM_VG}
+sn_root_dev=/dev/$LVM_VG/ROOT
 make_ext4_fs $sn_root_dev
 mount $sn_root_dev work_root
 
@@ -145,6 +147,9 @@ cp -p $ORIG_DIR/chrooted_customization.sh .
 chroot . ./chrooted_customization.sh $CHROOTED_DEBUG \
                 $work_image_loop_device $ROOT_PASSWORD
 rm ./chrooted_customization.sh
+cat > dbstck.conf << EOF
+LVM_VG=$LVM_VG
+EOF
 cd ..
 
 # step4: compress the filesystem tree
@@ -164,7 +169,7 @@ min_stick_size_in_sectors=$((   part3_start_sector +
 # step6: copy work version to the final image (with minimal size)
 
 # rename the lvm volume group of the work image to avoid any conflict
-vgrename SN_VG SN_VG_WORK
+vgrename $LVM_VG ${LVM_VG}_WORK
 # copy the master boot record code
 rm -f $DD_FILE
 dd status=noxfer if=$TMP_DD_FILE of=$DD_FILE bs=$MBR_BOOT_CODE_SIZE count=1
@@ -181,12 +186,12 @@ final_image_biosboot_dev=$2
 sn_lvm_dev=$3
 dd status=noxfer bs=1M if=$work_image_biosboot_dev of=$final_image_biosboot_dev
 pvcreate $sn_lvm_dev
-vgcreate SN_VG $sn_lvm_dev
-lvcreate -n SN_ROOT -l 100%FREE SN_VG
-sn_root_dev=/dev/SN_VG/SN_ROOT
+vgcreate ${LVM_VG} $sn_lvm_dev
+lvcreate -n ROOT -l 100%FREE $LVM_VG
+sn_root_dev=/dev/$LVM_VG/ROOT
 make_ext4_fs $sn_root_dev
 mount $sn_root_dev final_root
-mount /dev/SN_VG_WORK/SN_ROOT work_root
+mount /dev/${LVM_VG}_WORK/ROOT work_root
 cp -rp work_root/* final_root/
 echo TODO: meilleure estimation de taille mini en faisant une copie dans un filesystem vierge
 
@@ -224,7 +229,7 @@ cd ..
 umount compressed_fs work_root final_root
 
 # step8: setup the EFI boot partition
-mkfs.vfat -n SN_EFI $sn_efi_dev
+mkfs.vfat -n DBSTCK_EFI $sn_efi_dev
 cd $TMP_DIR
 mkdir -p efi/part
 cd efi
@@ -233,7 +238,7 @@ mkdir -p part/EFI/BOOT boot/grub
 cat > boot/grub/grub.cfg << EOF
 insmod part_gpt
 insmod lvm
-search --set rootfs --label SN_ROOT
+search --set rootfs --label ROOT
 configfile (\$rootfs)/boot/grub/grub.cfg
 EOF
 grub-mkstandalone \
@@ -245,8 +250,8 @@ umount part
 cd ..
 
 # step9: clean up
-dmsetup remove /dev/SN_VG_WORK/SN_ROOT
-dmsetup remove /dev/SN_VG/SN_ROOT
+dmsetup remove /dev/${LVM_VG}_WORK/ROOT
+dmsetup remove /dev/${LVM_VG}/ROOT
 kpartx -d $work_image_loop_device
 kpartx -d $final_image_loop_device
 losetup -d $work_image_loop_device
