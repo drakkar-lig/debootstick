@@ -197,36 +197,21 @@ echo TODO: meilleure estimation de taille mini en faisant une copie dans un file
 
 # step7: install BIOS bootloader
 
-# we have to make the environment look 'standard'
-# for grub-install and update-grub to work properly. 
-# this means that, once we chroot, / must be
-# the real root that will be used in our live os,
-# and same for /boot.
-# we have to deal with the fact that most of the system 
-# has been compressed in a squashfs image, including 
-# the tools we want to call (grub-install, update-grub) 
-# and their environment (config files, shared libs...). 
-mkdir compressed_fs
-mount -o ro final_root/fs.squashfs compressed_fs
-cd compressed_fs
-for dir in $(ls -A)
-do  # consider not-empty dirs only
-    if [ -d $dir -a "$(ls -A $dir)" ]
-    then 
-        mkdir -p ../final_root/$dir
-        mount -o bind,ro $dir ../final_root/$dir
-        echo $dir >> ../tmp_mounts
-    fi
-done
-cd ../final_root
-cp -p $ORIG_DIR/chrooted_grub_install.sh .
-chroot . ./chrooted_grub_install.sh $final_image_loop_device
-rm chrooted_grub_install.sh
-
-umount $(cat ../tmp_mounts)
+cd final_root
+# since the size of the filesystem mounted there is minimized,
+# creating new files may cause problems.
+# so we will use the directory /tmp that we mount in memory.
+mount -t tmpfs none tmp
+# /bin will be bind-mounted (see chrooted_grub_install.sh), 
+# making /bin/busybox unaccessible.
+# So we will use a copy in /tmp instead.
+cp -p bin/busybox tmp
+cp -p $ORIG_DIR/chrooted_grub_install.sh tmp
+chroot . tmp/busybox sh tmp/chrooted_grub_install.sh $final_image_loop_device
+umount tmp
 cd ..
 
-umount compressed_fs work_root final_root
+umount work_root final_root
 
 # step8: setup the EFI boot partition
 mkfs.vfat -n DBSTCK_EFI $sn_efi_dev
