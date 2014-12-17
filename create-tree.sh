@@ -10,7 +10,7 @@ TREE_DIR="$1"
 DEBUG=1
 if [ "$DEBUG" = "1" ]
 then
-    PACKAGES=$PACKAGES,isc-dhcp-client,vim,squashfs-tools
+    PACKAGES=$PACKAGES,isc-dhcp-client,vim,squashfs-tools,linux-image-generic,lvm2,busybox-static,gdisk,grub-pc,strace
 fi
 
 if [ ! "$PACKAGES" = "" ]
