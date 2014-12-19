@@ -20,6 +20,7 @@ LVM_VG="DBSTCK-$STICK_OS_ID"
 TMP_DIR=$(mktemp -d)
 DD_FILE=$TMP_DIR/disk.dd
 TMP_DD_FILE=$TMP_DIR/tmp.disk.dd
+FS_SIZE_ESTIMATION_DD_FILE=$TMP_DIR/tmp.fs.dd
 EFI_PARTITION_SIZE_MB=10
 BIOSBOOT_PARTITION_SIZE_MB=1
 IMAGE_SIZE_MARGIN_MB=0  # fs size estimation is enough pessimistic
@@ -48,7 +49,7 @@ make_ext4_fs()
     # possible this 'small' filesystem to a much larger device). 
     # Since this option is not handled by grub, it prevents the 
     # system from booting properly.
-    mkfs.ext4 -q -L ROOT -T default $1
+    mkfs.ext4 -F -q -L ROOT -T default $1
 }
 
 format_stick()
@@ -134,7 +135,6 @@ losetup $work_image_loop_device $TMP_DD_FILE
 format_stick $work_image_loop_device
 kpartx -a $work_image_loop_device
 set -- $(kpartx -l $work_image_loop_device | awk '{ print "/dev/mapper/"$1 }')
-work_image_biosboot_dev=$2
 sn_lvm_dev=$3
 pvcreate $sn_lvm_dev
 vgcreate $LVM_VG $sn_lvm_dev
@@ -161,20 +161,36 @@ cd ..
 make_compressed_fs work_root
 
 # step5: compute minimal size of final stick
-umount work_root    # resize2fs' minimal size estimation is wrong when mounted
+# 
+# note: for a better estimation of the minimal size we copy the contents
+# to a clean (new) filesystem.
+$DD if=/dev/zero bs=${work_image_size}M seek=1 count=0 of=$FS_SIZE_ESTIMATION_DD_FILE
+make_ext4_fs $FS_SIZE_ESTIMATION_DD_FILE
+cd $TMP_DIR
+mkdir intermediate_root
+mount $FS_SIZE_ESTIMATION_DD_FILE intermediate_root
+cp -rp work_root/* intermediate_root/
+sync
+umount intermediate_root work_root
+dmsetup remove /dev/${LVM_VG}/ROOT
+kpartx -d $work_image_loop_device
+losetup -d $work_image_loop_device
 part3_start_sector=$(sgdisk -p $TMP_DD_FILE | tail -n 1 | awk '{print $2}')
 sector_size=$(sgdisk -p $TMP_DD_FILE | grep 'sector size' | awk '{print $(NF-1)}')
-fs_block_size=$(tune2fs -l $sn_root_dev | grep 'Block size' | print_last_word)
-min_fs_size_in_blocks=$(resize2fs -P $sn_root_dev 2>/dev/null | print_last_word)
+fs_block_size=$(tune2fs -l $FS_SIZE_ESTIMATION_DD_FILE | grep 'Block size' | print_last_word)
+# for a better estimation of the minimal size, we request twice the filesystem 
+# to be minimized (option -M), and then get the minimal size proposed (option -P).
+resize2fs -M $FS_SIZE_ESTIMATION_DD_FILE
+resize2fs -M $FS_SIZE_ESTIMATION_DD_FILE
+min_fs_size_in_blocks=$(resize2fs -P $FS_SIZE_ESTIMATION_DD_FILE 2>/dev/null | print_last_word)
 min_fs_size_in_sectors=$((min_fs_size_in_blocks * (fs_block_size/sector_size)))
 min_stick_size_in_sectors=$((   part3_start_sector +
                                 min_fs_size_in_sectors +
                                 IMAGE_SIZE_MARGIN_MB * (1024 * 1024 / sector_size)))
+rm -f $work_image_loop_device
 
 # step6: copy work version to the final image (with minimal size)
 
-# rename the lvm volume group of the work image to avoid any conflict
-vgrename $LVM_VG ${LVM_VG}_WORK
 # prepare a final image with minimal size
 rm -f $DD_FILE
 $DD bs=$sector_size seek=$min_stick_size_in_sectors count=0 of=$DD_FILE
@@ -185,18 +201,17 @@ losetup $final_image_loop_device $DD_FILE
 kpartx -a $final_image_loop_device
 set -- $(kpartx -l $final_image_loop_device | awk '{ print "/dev/mapper/"$1 }')
 sn_efi_dev=$1
-final_image_biosboot_dev=$2
 sn_lvm_dev=$3
-$DD bs=1M if=$work_image_biosboot_dev of=$final_image_biosboot_dev
 pvcreate $sn_lvm_dev
 vgcreate ${LVM_VG} $sn_lvm_dev
 lvcreate -n ROOT -l 100%FREE $LVM_VG
 sn_root_dev=/dev/$LVM_VG/ROOT
 make_ext4_fs $sn_root_dev
 mount $sn_root_dev final_root
-mount /dev/${LVM_VG}_WORK/ROOT work_root
-cp -rp work_root/* final_root/
-echo TODO: meilleure estimation de taille mini en faisant une copie dans un filesystem vierge
+mount $FS_SIZE_ESTIMATION_DD_FILE intermediate_root
+cp -rp intermediate_root/* final_root/
+umount intermediate_root
+rm -f $FS_SIZE_ESTIMATION_DD_FILE
 
 # step7: install BIOS bootloader
 
@@ -214,7 +229,7 @@ chroot . tmp/busybox sh tmp/chrooted_grub_install.sh $final_image_loop_device
 umount tmp
 cd ..
 
-umount work_root final_root
+umount final_root
 
 # step8: setup the EFI boot partition
 mkfs.vfat -n DBSTCK_EFI $sn_efi_dev
@@ -238,11 +253,8 @@ umount part
 cd ..
 
 # step9: clean up
-dmsetup remove /dev/${LVM_VG}_WORK/ROOT
 dmsetup remove /dev/${LVM_VG}/ROOT
-kpartx -d $work_image_loop_device
 kpartx -d $final_image_loop_device
-losetup -d $work_image_loop_device
 losetup -d $final_image_loop_device
 cd $ORIG_DIR
 mkdir -p out
