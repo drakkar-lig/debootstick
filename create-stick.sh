@@ -22,15 +22,16 @@ DD_FILE=$TMP_DIR/disk.dd
 TMP_DD_FILE=$TMP_DIR/tmp.disk.dd
 EFI_PARTITION_SIZE_MB=10
 BIOSBOOT_PARTITION_SIZE_MB=1
-IMAGE_SIZE_MARGIN_MB=2
+IMAGE_SIZE_MARGIN_MB=0  # fs size estimation is enough pessimistic
 USB_SAMPLE_STICK_SIZE="2G"
-DEBUG=0
-MBR_BOOT_CODE_SIZE=446      # bytes
+MKSQUASHFS_OPTS="-b 1M -comp xz"
+DEBUG=1
 if [ "$DEBUG" = "1" ]
 then
     CHROOTED_DEBUG="--debug"
 fi
 ROOT_PASSWORD="mot2passe"
+DD="dd status=none"
 
 make_ext4_fs()
 {
@@ -63,7 +64,8 @@ print_last_word()
 }
 
 make_compressed_fs()
-{
+{   
+    echo "Compressing the system..."
     fs_tree=$(cd $1; pwd)
     
     # we will work with two subdirectories, 
@@ -76,9 +78,10 @@ make_compressed_fs()
     cd .fs.orig
 
     # clean up
-    rm -rf proc/* sys/* dev/* tmp/* run/*
+    rm -rf proc/* sys/* dev/* tmp/* run/* /var/cache/*
 
-    # some files should be preserved (not compressed)
+    # some files should be available early at boot 
+    # (thus not compressed in the squashfs image)
     while read f
     do
         mkdir -p $(dirname $fs_tree/.fs.compressed/$f)
@@ -87,20 +90,20 @@ make_compressed_fs()
 boot
 bin/busybox
 $(find lib -name squashfs.ko)
-$(find lib -name overlayfs.ko)
 EOF
+
     # move the init
     mv sbin/init sbin/init.orig
     
     # create compressed image
-    mksquashfs $PWD $fs_tree/.fs.compressed/fs.squashfs
+    mksquashfs $PWD $fs_tree/.fs.compressed/fs.squashfs $MKSQUASHFS_OPTS
 
     # finalize compressed tree
     cd $fs_tree/.fs.compressed
     mkdir -p sbin proc sys tmp/os tmp/os_rw tmp/os_ro dev
-    cp -p $ORIG_DIR/first-init.sh sbin/first-init.sh
+    cp -p $ORIG_DIR/first-init.sh sbin/debootstick-first-init.sh
     cd sbin
-    ln -s first-init.sh init
+    ln -s debootstick-first-init.sh init
 
     # keep only the compressed version in fs_tree
     cd $fs_tree/.fs.compressed
@@ -125,7 +128,7 @@ work_image_size=$(( EFI_PARTITION_SIZE_MB +
 
 # step2: create work image structure
 rm -f $TMP_DD_FILE
-dd status=noxfer if=/dev/zero bs=${work_image_size}M seek=1 count=0 of=$TMP_DD_FILE
+$DD if=/dev/zero bs=${work_image_size}M seek=1 count=0 of=$TMP_DD_FILE
 work_image_loop_device=$(losetup -f)
 losetup $work_image_loop_device $TMP_DD_FILE
 format_stick $work_image_loop_device
@@ -143,6 +146,8 @@ mount $sn_root_dev work_root
 # step3: copy original tree to work image and modify it
 cd work_root/
 cp -rp $ORIG_TREE/* .
+mkdir -p opt/debootstick
+cp -rp $ORIG_DIR/live opt/debootstick/live
 cp -p $ORIG_DIR/chrooted_customization.sh .
 chroot . ./chrooted_customization.sh $CHROOTED_DEBUG \
                 $work_image_loop_device $ROOT_PASSWORD
@@ -170,11 +175,9 @@ min_stick_size_in_sectors=$((   part3_start_sector +
 
 # rename the lvm volume group of the work image to avoid any conflict
 vgrename $LVM_VG ${LVM_VG}_WORK
-# copy the master boot record code
+# prepare a final image with minimal size
 rm -f $DD_FILE
-dd status=noxfer if=$TMP_DD_FILE of=$DD_FILE bs=$MBR_BOOT_CODE_SIZE count=1
-# modify the size of the final image 
-dd status=noxfer bs=$sector_size seek=$min_stick_size_in_sectors count=0 of=$DD_FILE
+$DD bs=$sector_size seek=$min_stick_size_in_sectors count=0 of=$DD_FILE
 # format the final image like the working one
 format_stick $DD_FILE
 final_image_loop_device=$(losetup -f)
@@ -184,7 +187,7 @@ set -- $(kpartx -l $final_image_loop_device | awk '{ print "/dev/mapper/"$1 }')
 sn_efi_dev=$1
 final_image_biosboot_dev=$2
 sn_lvm_dev=$3
-dd status=noxfer bs=1M if=$work_image_biosboot_dev of=$final_image_biosboot_dev
+$DD bs=1M if=$work_image_biosboot_dev of=$final_image_biosboot_dev
 pvcreate $sn_lvm_dev
 vgcreate ${LVM_VG} $sn_lvm_dev
 lvcreate -n ROOT -l 100%FREE $LVM_VG
