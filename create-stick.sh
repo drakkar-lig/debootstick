@@ -20,9 +20,8 @@ LVM_VG="DBSTCK-$STICK_OS_ID"
 TMP_DIR=$(mktemp -d)
 DD_FILE=$TMP_DIR/disk.dd
 TMP_DD_FILE=$TMP_DIR/tmp.disk.dd
-EFI_PARTITION_SIZE_MB=10
-BIOSBOOT_PARTITION_SIZE_MB=1
-IMAGE_SIZE_MARGIN_MB=0  # fs size estimation is enough pessimistic
+BIOSBOOT_PARTITION_SIZE_KB=1024
+IMAGE_SIZE_MARGIN_KB=0  # fs size estimation is enough pessimistic
 USB_SAMPLE_STICK_SIZE="2G"
 MKSQUASHFS_OPTS="-b 1M -comp xz"
 FAT_OVERHEAD_PERCENT=10
@@ -57,9 +56,9 @@ make_ext4_fs()
 format_stick()
 {
     device=$1
-    efi_partition_size_mb=$2
-    sgdisk  -n 1:0:+${efi_partition_size_mb}M -t 1:ef00 \
-            -n 2:0:+${BIOSBOOT_PARTITION_SIZE_MB}M -t 2:ef02 \
+    efi_partition_size_kb=$2
+    sgdisk  -n 1:0:+${efi_partition_size_kb}K -t 1:ef00 \
+            -n 2:0:+${BIOSBOOT_PARTITION_SIZE_KB}K -t 2:ef02 \
             -n 3:0:0 -t 3:8e00 $device
 }
 
@@ -124,13 +123,11 @@ compute_min_fs_size()
 {
 	fs_mount_point=$1
 	
-	fs_block_size=$(stat -f --format "%S" $fs_mount_point)
 	data_size_in_kbytes=$(du -sk $fs_mount_point | awk '{print $1}')
-	data_size_in_blocks=$((data_size_in_kbytes*4/(4*fs_block_size/1024)))
-	min_fs_size_in_blocks=$((data_size_in_blocks*100/(100-FS_OVERHEAD_PERCENT)))
+	min_fs_size_in_kbytes=$((data_size_in_kbytes*100/(100-FS_OVERHEAD_PERCENT)))
 
-	# return the block size and min number of blocks
-	echo $fs_block_size $min_fs_size_in_blocks
+	# return this size
+	echo $min_fs_size_in_kbytes
 }
 
 mount -t tmpfs none $TMP_DIR
@@ -150,22 +147,22 @@ grub-mkstandalone \
         --compress="gz" --output="BOOTX64.efi"            \
         "boot/grub/grub.cfg"
 efi_image_size_bytes=$(stat -c "%s" BOOTX64.efi)
-efi_partition_size_mb=$((efi_image_size_bytes/1024*100/(100-FAT_OVERHEAD_PERCENT)/1024+1))
+efi_partition_size_kb=$((efi_image_size_bytes/1024*100/(100-FAT_OVERHEAD_PERCENT)))
 cd ..
 
 # step1: compute a stick size large enough for our work 
 # (i.e. not for the final minimized version)
-fs_size_estimation=$(du -sm $ORIG_TREE | awk '{print $1}')
-work_image_size=$(( efi_partition_size_mb + 
-                    BIOSBOOT_PARTITION_SIZE_MB + 
+fs_size_estimation=$(du -sk $ORIG_TREE | awk '{print $1}')
+work_image_size=$(( efi_partition_size_kb + 
+                    BIOSBOOT_PARTITION_SIZE_KB + 
                     4*fs_size_estimation))
 
 # step2: create work image structure
 rm -f $TMP_DD_FILE
-$DD if=/dev/zero bs=${work_image_size}M seek=1 count=0 of=$TMP_DD_FILE
+$DD if=/dev/zero bs=${work_image_size}k seek=1 count=0 of=$TMP_DD_FILE
 work_image_loop_device=$(losetup -f)
 losetup $work_image_loop_device $TMP_DD_FILE
-format_stick $work_image_loop_device $efi_partition_size_mb
+format_stick $work_image_loop_device $efi_partition_size_kb
 kpartx -a $work_image_loop_device
 set -- $(kpartx -l $work_image_loop_device | awk '{ print "/dev/mapper/"$1 }')
 sn_lvm_dev=$3
@@ -195,13 +192,13 @@ make_compressed_fs work_root
 
 # step5: compute minimal size of final stick
 cd $TMP_DIR
-read fs_block_size min_fs_size_in_blocks <<< $(compute_min_fs_size work_root)
+min_fs_size_in_kbytes=$(compute_min_fs_size work_root)
 part3_start_sector=$(sgdisk -p $TMP_DD_FILE | tail -n 1 | awk '{print $2}')
 sector_size=$(sgdisk -p $TMP_DD_FILE | grep 'sector size' | awk '{print $(NF-1)}')
-min_part3_size_in_sectors=$((min_fs_size_in_blocks * (fs_block_size/sector_size) *100/(100-LVM_OVERHEAD_PERCENT)))
-min_stick_size_in_sectors=$((   part3_start_sector +
-                                min_part3_size_in_sectors +
-                                IMAGE_SIZE_MARGIN_MB * (1024 * 1024 / sector_size)))
+min_part3_size_in_kbytes=$((min_fs_size_in_kbytes * 100/(100-LVM_OVERHEAD_PERCENT)))
+min_stick_size_in_kbytes=$((    part3_start_sector / 1024 * sector_size +
+                                min_part3_size_in_kbytes +
+                                IMAGE_SIZE_MARGIN_KB))
 
 # step6: copy work version to the final image (with minimal size)
 
@@ -210,9 +207,9 @@ vgrename $LVM_VG ${LVM_VG}_WORK
 
 # prepare a final image with minimal size
 rm -f $DD_FILE
-$DD bs=$sector_size seek=$min_stick_size_in_sectors count=0 of=$DD_FILE
+$DD bs=1024 seek=$min_stick_size_in_kbytes count=0 of=$DD_FILE
 # format the final image like the working one
-format_stick $DD_FILE $efi_partition_size_mb
+format_stick $DD_FILE $efi_partition_size_kb
 final_image_loop_device=$(losetup -f)
 losetup $final_image_loop_device $DD_FILE
 kpartx -a $final_image_loop_device
