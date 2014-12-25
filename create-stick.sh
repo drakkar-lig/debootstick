@@ -20,12 +20,14 @@ LVM_VG="DBSTCK-$STICK_OS_ID"
 TMP_DIR=$(mktemp -d)
 DD_FILE=$TMP_DIR/disk.dd
 TMP_DD_FILE=$TMP_DIR/tmp.disk.dd
-FS_SIZE_ESTIMATION_DD_FILE=$TMP_DIR/tmp.fs.dd
 EFI_PARTITION_SIZE_MB=10
 BIOSBOOT_PARTITION_SIZE_MB=1
 IMAGE_SIZE_MARGIN_MB=0  # fs size estimation is enough pessimistic
 USB_SAMPLE_STICK_SIZE="2G"
 MKSQUASHFS_OPTS="-b 1M -comp xz"
+FAT_OVERHEAD_PERCENT=10
+FS_OVERHEAD_PERCENT=15
+LVM_OVERHEAD_PERCENT=4
 DEBUG=1
 if [ "$DEBUG" = "1" ]
 then
@@ -49,14 +51,16 @@ make_ext4_fs()
     # possible this 'small' filesystem to a much larger device). 
     # Since this option is not handled by grub, it prevents the 
     # system from booting properly.
-    mkfs.ext4 -F -q -L ROOT -T default $1
+    mkfs.ext4 -F -q -L ROOT -T default -m 2 $1
 }
 
 format_stick()
 {
-    sgdisk  -n 1:0:+${EFI_PARTITION_SIZE_MB}M -t 1:ef00 \
+    device=$1
+    efi_partition_size_mb=$2
+    sgdisk  -n 1:0:+${efi_partition_size_mb}M -t 1:ef00 \
             -n 2:0:+${BIOSBOOT_PARTITION_SIZE_MB}M -t 2:ef02 \
-            -n 3:0:0 -t 3:8e00 $1
+            -n 3:0:0 -t 3:8e00 $device
 }
 
 print_last_word()
@@ -116,14 +120,43 @@ EOF
     cd $TMP_DIR
 }
 
+compute_min_fs_size()
+{
+	fs_mount_point=$1
+	
+	fs_block_size=$(stat -f --format "%S" $fs_mount_point)
+	data_size_in_kbytes=$(du -sk $fs_mount_point | awk '{print $1}')
+	data_size_in_blocks=$((data_size_in_kbytes*4/(4*fs_block_size/1024)))
+	min_fs_size_in_blocks=$((data_size_in_blocks*100/(100-FS_OVERHEAD_PERCENT)))
+
+	# return the block size and min number of blocks
+	echo $fs_block_size $min_fs_size_in_blocks
+}
+
 mount -t tmpfs none $TMP_DIR
 cd $TMP_DIR
-mkdir work_root final_root
+mkdir -p work_root final_root efi/part efi/boot/grub
+
+# step0: generate EFI bootloader image
+cd efi
+cat > boot/grub/grub.cfg << EOF
+insmod part_gpt
+insmod lvm
+search --set rootfs --label ROOT
+configfile (\$rootfs)/boot/grub/grub.cfg
+EOF
+grub-mkstandalone \
+        --directory="/usr/lib/grub/x86_64-efi/" --format="x86_64-efi"   \
+        --compress="gz" --output="BOOTX64.efi"            \
+        "boot/grub/grub.cfg"
+efi_image_size_bytes=$(stat -c "%s" BOOTX64.efi)
+efi_partition_size_mb=$((efi_image_size_bytes/1024*100/(100-FAT_OVERHEAD_PERCENT)/1024+1))
+cd ..
 
 # step1: compute a stick size large enough for our work 
 # (i.e. not for the final minimized version)
 fs_size_estimation=$(du -sm $ORIG_TREE | awk '{print $1}')
-work_image_size=$(( EFI_PARTITION_SIZE_MB + 
+work_image_size=$(( efi_partition_size_mb + 
                     BIOSBOOT_PARTITION_SIZE_MB + 
                     4*fs_size_estimation))
 
@@ -132,7 +165,7 @@ rm -f $TMP_DD_FILE
 $DD if=/dev/zero bs=${work_image_size}M seek=1 count=0 of=$TMP_DD_FILE
 work_image_loop_device=$(losetup -f)
 losetup $work_image_loop_device $TMP_DD_FILE
-format_stick $work_image_loop_device
+format_stick $work_image_loop_device $efi_partition_size_mb
 kpartx -a $work_image_loop_device
 set -- $(kpartx -l $work_image_loop_device | awk '{ print "/dev/mapper/"$1 }')
 sn_lvm_dev=$3
@@ -161,41 +194,25 @@ cd ..
 make_compressed_fs work_root
 
 # step5: compute minimal size of final stick
-# 
-# note: for a better estimation of the minimal size we copy the contents
-# to a clean (new) filesystem.
-$DD if=/dev/zero bs=${work_image_size}M seek=1 count=0 of=$FS_SIZE_ESTIMATION_DD_FILE
-make_ext4_fs $FS_SIZE_ESTIMATION_DD_FILE
 cd $TMP_DIR
-mkdir intermediate_root
-mount $FS_SIZE_ESTIMATION_DD_FILE intermediate_root
-cp -rp work_root/* intermediate_root/
-sync
-umount intermediate_root work_root
-dmsetup remove /dev/${LVM_VG}/ROOT
-kpartx -d $work_image_loop_device
-losetup -d $work_image_loop_device
+read fs_block_size min_fs_size_in_blocks <<< $(compute_min_fs_size work_root)
 part3_start_sector=$(sgdisk -p $TMP_DD_FILE | tail -n 1 | awk '{print $2}')
 sector_size=$(sgdisk -p $TMP_DD_FILE | grep 'sector size' | awk '{print $(NF-1)}')
-fs_block_size=$(tune2fs -l $FS_SIZE_ESTIMATION_DD_FILE | grep 'Block size' | print_last_word)
-# for a better estimation of the minimal size, we request twice the filesystem 
-# to be minimized (option -M), and then get the minimal size proposed (option -P).
-resize2fs -M $FS_SIZE_ESTIMATION_DD_FILE
-resize2fs -M $FS_SIZE_ESTIMATION_DD_FILE
-min_fs_size_in_blocks=$(resize2fs -P $FS_SIZE_ESTIMATION_DD_FILE 2>/dev/null | print_last_word)
-min_fs_size_in_sectors=$((min_fs_size_in_blocks * (fs_block_size/sector_size)))
+min_part3_size_in_sectors=$((min_fs_size_in_blocks * (fs_block_size/sector_size) *100/(100-LVM_OVERHEAD_PERCENT)))
 min_stick_size_in_sectors=$((   part3_start_sector +
-                                min_fs_size_in_sectors +
+                                min_part3_size_in_sectors +
                                 IMAGE_SIZE_MARGIN_MB * (1024 * 1024 / sector_size)))
-rm -f $work_image_loop_device
 
 # step6: copy work version to the final image (with minimal size)
+
+# rename existing lvm vg in order to avoid a conflict
+vgrename $LVM_VG ${LVM_VG}_WORK
 
 # prepare a final image with minimal size
 rm -f $DD_FILE
 $DD bs=$sector_size seek=$min_stick_size_in_sectors count=0 of=$DD_FILE
 # format the final image like the working one
-format_stick $DD_FILE
+format_stick $DD_FILE $efi_partition_size_mb
 final_image_loop_device=$(losetup -f)
 losetup $final_image_loop_device $DD_FILE
 kpartx -a $final_image_loop_device
@@ -208,10 +225,12 @@ lvcreate -n ROOT -l 100%FREE $LVM_VG
 sn_root_dev=/dev/$LVM_VG/ROOT
 make_ext4_fs $sn_root_dev
 mount $sn_root_dev final_root
-mount $FS_SIZE_ESTIMATION_DD_FILE intermediate_root
-cp -rp intermediate_root/* final_root/
-umount intermediate_root
-rm -f $FS_SIZE_ESTIMATION_DD_FILE
+cp -rp work_root/* final_root/
+umount work_root
+dmsetup remove /dev/${LVM_VG}_WORK/ROOT
+kpartx -d $work_image_loop_device
+losetup -d $work_image_loop_device
+rm -f $work_image_loop_device
 
 # step7: install BIOS bootloader
 
@@ -233,22 +252,10 @@ umount final_root
 
 # step8: setup the EFI boot partition
 mkfs.vfat -n DBSTCK_EFI $sn_efi_dev
-cd $TMP_DIR
-mkdir -p efi/part
-cd efi
+cd $TMP_DIR/efi
 mount $sn_efi_dev part
-mkdir -p part/EFI/BOOT boot/grub
-cat > boot/grub/grub.cfg << EOF
-insmod part_gpt
-insmod lvm
-search --set rootfs --label ROOT
-configfile (\$rootfs)/boot/grub/grub.cfg
-EOF
-grub-mkstandalone \
-        --directory="/usr/lib/grub/x86_64-efi/" --format="x86_64-efi"   \
-        --compress="gz" --output="part/EFI/BOOT/BOOTX64.efi"            \
-        "boot/grub/grub.cfg"
-echo TODO: ajouter 10% a la taille de part/EFI/BOOT/BOOTX64.efi pour la taille de la partition devrait largement suffire
+mkdir -p part/EFI/BOOT
+mv BOOTX64.efi part/EFI/BOOT/
 umount part
 cd ..
 
