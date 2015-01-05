@@ -1,10 +1,21 @@
 #!/bin/bash
 set -e
 
-if [ ! -d "$1" ]
-then
-    echo "Usage: $0 <fs_tree_dir>" >&2
+usage_and_exit()
+{
+    echo "Usage: $0 <fs_tree_dir> <out_image_path>" >&2
     exit
+}
+
+abspath()
+{
+    echo "$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
+}
+
+# we need 2 args
+if [ -z "$2" ]
+then
+    usage_and_exit
 fi
 
 # ensure we are root
@@ -13,12 +24,25 @@ then
     sudo $0 $*
     exit
 fi
+
+# 1st arg is a directory
+if [ ! -d "$1" ]
+then
+    usage_and_exit
+fi
+
+# 2nd one is a writable file path
+if [ ! -w $(dirname "$2") ] 
+then
+    usage_and_exit
+fi
+
 ORIG_DIR=$(cd $(dirname $0); pwd)
 ORIG_TREE="$(cd "$1"; pwd)"
 STICK_OS_ID=$(uuidgen)
 LVM_VG="DBSTCK-$STICK_OS_ID"
 TMP_DIR=$(mktemp -d)
-DD_FILE=$TMP_DIR/disk.dd
+DD_FILE="$(abspath "$2")"
 TMP_DD_FILE=$TMP_DIR/tmp.disk.dd
 BIOSBOOT_PARTITION_SIZE_KB=1024
 IMAGE_SIZE_MARGIN_KB=0  # fs size estimation is enough pessimistic
@@ -263,17 +287,16 @@ losetup -d $final_image_loop_device
 cd $ORIG_DIR
 mkdir -p out
 
-cp $DD_FILE out/
-chmod a+rw out/disk.dd
+chmod a+rw $DD_FILE
 umount -lf $TMP_DIR
 rm -rf $TMP_DIR
-echo out/disk.dd ready.
+echo $DD_FILE ready.
 
 echo " ---- to test it with kvm: ----"
 echo " * simulate copy on a larger USB stick by increasing the file size"
-echo "truncate -s $USB_SAMPLE_STICK_SIZE out/disk.dd"
+echo "truncate -s $USB_SAMPLE_STICK_SIZE $DD_FILE"
 echo " * test it (BIOS):"
-echo "kvm -hda out/disk.dd -nographic"
+echo "kvm -hda $DD_FILE -nographic"
 echo " * test it (EFI):"
-echo "kvm -bios /usr/share/qemu/OVMF.fd -hda out/disk.dd -nographic; reset"
+echo "kvm -bios /usr/share/qemu/OVMF.fd -hda $DD_FILE -nographic; reset"
 
