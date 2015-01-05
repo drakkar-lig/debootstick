@@ -1,0 +1,1 @@
+{"name":"Debootstick","tagline":"Generate a bootable live image from any Debian/Ubuntu filesystem tree.","body":"\r\nDependencies:\r\n- lvm2 kpartx squashfs-tools grub-efi-amd64-bin\r\n\r\nSuggested:\r\n- debootstrap kvm ovmf\r\n\r\n","google":"","note":"Don't delete this file! It's used internally to help with page regeneration."}
