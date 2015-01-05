@@ -93,6 +93,7 @@ make_compressed_fs()
     done << EOF
 boot
 bin/busybox
+opt/debootstick/live/init/first-init.sh
 $(find lib -name squashfs.ko)
 EOF
 
@@ -105,9 +106,8 @@ EOF
     # finalize compressed tree
     cd $fs_tree/.fs.compressed
     mkdir -p sbin proc sys tmp/os tmp/os_rw tmp/os_ro dev
-    cp -p $ORIG_DIR/first-init.sh sbin/debootstick-first-init.sh
     cd sbin
-    ln -s debootstick-first-init.sh init
+    ln -s ../opt/debootstick/live/init/first-init.sh init
 
     # keep only the compressed version in fs_tree
     cd $fs_tree/.fs.compressed
@@ -177,11 +177,11 @@ mount $sn_root_dev work_root
 cd work_root/
 cp -rp $ORIG_TREE/* .
 mkdir -p opt/debootstick
-cp -rp $ORIG_DIR/live opt/debootstick/live
-cp -p $ORIG_DIR/chrooted_customization.sh .
-chroot . ./chrooted_customization.sh $CHROOTED_DEBUG \
+cp -rp $ORIG_DIR/scripts/live opt/debootstick/live
+cp -p $ORIG_DIR/scripts/create-image/chrooted-customization.sh .
+chroot . ./chrooted-customization.sh $CHROOTED_DEBUG \
                 $work_image_loop_device $ROOT_PASSWORD
-rm ./chrooted_customization.sh
+rm ./chrooted-customization.sh
 cat > dbstck.conf << EOF
 LVM_VG=$LVM_VG
 EOF
@@ -236,12 +236,12 @@ cd final_root
 # creating new files may cause problems.
 # so we will use the directory /tmp that we mount in memory.
 mount -t tmpfs none tmp
-# /bin will be bind-mounted (see chrooted_grub_install.sh), 
+# /bin will be bind-mounted (see chrooted-grub-install.sh), 
 # making /bin/busybox unaccessible.
 # So we will use a copy in /tmp instead.
 cp -p bin/busybox tmp
-cp -p $ORIG_DIR/chrooted_grub_install.sh tmp
-chroot . tmp/busybox sh tmp/chrooted_grub_install.sh $final_image_loop_device
+cp -p $ORIG_DIR/scripts/create-image/chrooted-grub-install.sh tmp
+chroot . tmp/busybox sh tmp/chrooted-grub-install.sh $final_image_loop_device
 umount tmp
 cd ..
 
