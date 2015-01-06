@@ -1,5 +1,3 @@
-#!/bin/bash
-
 PROGRESS_BAR_SIZE=40
 
 process_exists()

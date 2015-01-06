@@ -1,0 +1,119 @@
+.\" (C) Copyright 2015 Etienne Dublé <etienne.duble@imag.fr>,
+.\"
+.TH DEBOOTSTICK 8 "January  5, 2015"
+.\" Please adjust this date whenever revising the manpage.
+
+.SH NAME
+debootstick \- Generate a bootable image from an Ubuntu filesystem tree
+
+.SH SYNOPSIS
+.B debootstick
+.RI [ options ]
+.I SOURCE DEST
+
+.SH DESCRIPTION
+
+.B debootstick
+generates a bootable image (at \fIDEST\fP) from an Ubuntu filesystem tree (at \fISOURCE\fP).
+
+.PP
+\fISOURCE\fP must be a directory
+containing a standard Ubuntu system structure (such as one generated with
+\fBdebootstrap\fP(8)).
+The output image generated at \fIDEST\fP should then be copied
+to a USB stick or disk.
+
+.PP
+The embedded system is:
+.br
+- ready to be used (no installation step, only an automatic decompression at 1st boot)
+.br
+- viable in the long-term, fully upgradable (kernel, bootloader included)
+.br
+- compact (see \fBNOTES\fP)
+.br
+- compatible with BIOS and UEFI systems
+
+.SH OPTIONS
+.B debootstick
+follows the usual GNU command line syntax, with long
+options starting with two dashes (`-').
+A summary of options is included below.
+.TP
+.B \-h, \-\-help
+Show summary of options.
+.TP
+.B \-v, \-\-version
+Show version of program.
+
+.SH EXAMPLES
+
+The most common workflow is the following.
+
+.PP
+.B 1-
+Generate a filesystem tree:
+.br
+\fBdebootstrap\fP --arch=amd64 --variant=minbase trusty /tmp/trusty_tree
+
+.PP
+.B 2-
+(Optionaly) customize it:
+.br
+\fBchroot\fP /tmp/trusty_tree; [...]; exit
+
+.PP
+.B 3-
+Generate the bootable image:
+.br
+\fBdebootstick\fP /tmp/trusty_tree /tmp/img.dd
+
+.PP
+.B 4-
+Test it with kvm.
+.br
+\fBcp\fP /tmp/img.dd /tmp/img.dd-test    # let's work on a copy, our test is destructive
+.br
+\fBtruncate\fP -s 2G /tmp/img.dd-test    # simulate a copy on a 2G-large USB stick
+.br
+\fBkvm\fP -hda /tmp/img.dd-test          # the test itself (BIOS mode)
+
+.PP
+.B 5-
+Copy the boot image to a USB stick or disk.
+.br
+\fBdd\fP bs=10M if=\fB/tmp/img.dd\fP of=/dev/your-device
+
+.PP
+The USB device may now be booted on any amd64 system (BIOS or UEFI).
+
+.SH NOTES
+It is also possible to test the UEFI boot with \fBkvm\fP, if you have the
+\fBovmf\fP package installed, by adding \fB-bios /path/to/OVMF.fd\fP to
+the \fBkvm\fP command line.
+
+.PP
+Appropriate compaction is handled by using a temporary squashfs image that is
+decompressed and removed at 1st boot.
+.br
+Many Live distributions prefer to keep the read-only squashfs image and handle
+writes using an overlay based on a filesystem union.
+While this allows the system to remain compact in the first times, this also has
+disavantages:
+.br
+- Some important files remain read-only and cannot be upgraded (that is the case of
+the linux kernel and the bootloader) which quickly leads to security issues or upgrade
+problems.
+.br
+- Storing modified files in an overlay and never releasing the room needed for
+the original versions in the squashsfs image is counter-productive in the long term.
+.br
+One of the objectives behind \fBdebootstick\fP was to provide a viable long-term
+live system, therefore a different solution had to be designed.
+
+.SH AUTHOR
+Etienne Duble (etienne.duble@imag.fr)
+
+.SH SEE ALSO
+.BR debootstrap (8),
+.BR kvm (1).

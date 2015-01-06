@@ -1,5 +1,5 @@
-#!/tmp/busybox sh
-
+# do not specify the shebang, because this should actually be called
+# by "/tmp/busybox sh", and lintian emits a warning.
 loop_device=$1
 
 # classical mounts

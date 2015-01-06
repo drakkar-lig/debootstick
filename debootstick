@@ -1,6 +1,20 @@
 #!/bin/bash
 set -e
 
+# constants
+VERSION='@VERSION@'     # updated at install time
+BIOSBOOT_PARTITION_SIZE_KB=1024
+IMAGE_SIZE_MARGIN_KB=0  # fs size estimation is enough pessimistic
+USB_SAMPLE_STICK_SIZE="2G"
+MKSQUASHFS_OPTS="-b 1M -comp xz"
+FAT_OVERHEAD_PERCENT=10
+FS_OVERHEAD_PERCENT=15
+LVM_OVERHEAD_PERCENT=4
+DEBUG=1
+ROOT_PASSWORD="mot2passe"
+DD="dd status=none"
+DBSTCK_DIR="/usr/share/debootstick"
+
 usage_and_exit()
 {
     echo "Usage: $0 <fs_tree_dir> <out_image_path>" >&2
@@ -37,27 +51,16 @@ then
     usage_and_exit
 fi
 
-ORIG_DIR=$(cd $(dirname $0); pwd)
 ORIG_TREE="$(cd "$1"; pwd)"
 STICK_OS_ID=$(uuidgen)
 LVM_VG="DBSTCK-$STICK_OS_ID"
 TMP_DIR=$(mktemp -d)
 DD_FILE="$(abspath "$2")"
 TMP_DD_FILE=$TMP_DIR/tmp.disk.dd
-BIOSBOOT_PARTITION_SIZE_KB=1024
-IMAGE_SIZE_MARGIN_KB=0  # fs size estimation is enough pessimistic
-USB_SAMPLE_STICK_SIZE="2G"
-MKSQUASHFS_OPTS="-b 1M -comp xz"
-FAT_OVERHEAD_PERCENT=10
-FS_OVERHEAD_PERCENT=15
-LVM_OVERHEAD_PERCENT=4
-DEBUG=1
 if [ "$DEBUG" = "1" ]
 then
     CHROOTED_DEBUG="--debug"
 fi
-ROOT_PASSWORD="mot2passe"
-DD="dd status=none"
 
 make_ext4_fs()
 {
@@ -132,6 +135,8 @@ EOF
     mkdir -p sbin proc sys tmp/os tmp/os_rw tmp/os_ro dev
     cd sbin
     ln -s ../opt/debootstick/live/init/first-init.sh init
+    cd ../bin
+    ln -s busybox sh
 
     # keep only the compressed version in fs_tree
     cd $fs_tree/.fs.compressed
@@ -201,8 +206,8 @@ mount $sn_root_dev work_root
 cd work_root/
 cp -rp $ORIG_TREE/* .
 mkdir -p opt/debootstick
-cp -rp $ORIG_DIR/scripts/live opt/debootstick/live
-cp -p $ORIG_DIR/scripts/create-image/chrooted-customization.sh .
+cp -rp $DBSTCK_DIR/scripts/live opt/debootstick/live
+cp -p $DBSTCK_DIR/scripts/create-image/chrooted-customization.sh .
 chroot . ./chrooted-customization.sh $CHROOTED_DEBUG \
                 $work_image_loop_device $ROOT_PASSWORD
 rm ./chrooted-customization.sh
@@ -264,7 +269,7 @@ mount -t tmpfs none tmp
 # making /bin/busybox unaccessible.
 # So we will use a copy in /tmp instead.
 cp -p bin/busybox tmp
-cp -p $ORIG_DIR/scripts/create-image/chrooted-grub-install.sh tmp
+cp -p $DBSTCK_DIR/scripts/create-image/chrooted-grub-install.sh tmp
 chroot . tmp/busybox sh tmp/chrooted-grub-install.sh $final_image_loop_device
 umount tmp
 cd ..
@@ -284,7 +289,7 @@ cd ..
 dmsetup remove /dev/${LVM_VG}/ROOT
 kpartx -d $final_image_loop_device
 losetup -d $final_image_loop_device
-cd $ORIG_DIR
+cd $DBSTCK_DIR
 mkdir -p out
 
 chmod a+rw $DD_FILE

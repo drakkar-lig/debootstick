@@ -1,0 +1,19 @@
+Source: debootstick
+Section: admin
+Priority: extra
+Maintainer: Etienne Dublé <etienne.duble@imag.fr>
+Build-Depends: debhelper (>= 9)
+Standards-Version: 3.9.5
+Homepage: http://drakkar-lig.github.io/debootstick
+Vcs-Git: git://github.com/drakkar-lig/debootstick
+Vcs-Browser: https://github.com/drakkar-lig/debootstick
+
+Package: debootstick
+Architecture: all
+Depends: ${misc:Depends}, lvm2, kpartx, squashfs-tools, grub-efi-amd64-bin
+Recommends: debootstrap, kvm, ovmf
+Description: Generate a bootable live image from a filesystem tree
+ debootstick is used to generate a bootable Ubuntu image from 
+ an Ubuntu filesystem tree (such as one generated with debootstrap).
+ This image should then be copied to a USB stick or disk. 
+

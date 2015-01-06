@@ -1,0 +1,5 @@
+debootstick (0.1) trusty; urgency=low
+
+  * Initial release
+
+ -- Etienne Dublé <etienne.duble@imag.fr>  Mon, 05 Jan 2015 16:53:33 +0100
