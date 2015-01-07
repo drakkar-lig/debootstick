@@ -87,6 +87,14 @@ sed -e 's/quick_boot=.*/quick_boot=0/' etc/grub.d/10_linux > \
 chmod +x etc/grub.d/09_linux_custom
 rm etc/grub.d/10_linux
 
+# install grub on this temporary work-image
+# This may not seem useful (it will be repeated on the final
+# stick anyway), but actually it is:
+# the files created there should be accounted when
+# estimating the final stick minimal size).
+grub-install $loop_device
+update-grub
+
 rm boot/grub/device.map
 
 umount /sys /dev/pts /proc /dev

@@ -1,4 +1,10 @@
-debootstick (0.1) trusty; urgency=low
+debootstick (0.1b) trusty; urgency=low
+
+  * Improved minimal space computations
+
+ -- Etienne Dublé <etienne.duble@imag.fr>  Mon, 07 Jan 2015 16:19:53 +0100
+
+debootstick (0.1a) trusty; urgency=low
 
   * Initial release
 

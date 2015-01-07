@@ -10,6 +10,7 @@ MKSQUASHFS_OPTS="-b 1M -comp xz"
 FAT_OVERHEAD_PERCENT=10
 FS_OVERHEAD_PERCENT=15
 LVM_OVERHEAD_PERCENT=4
+MAX_WORK_IMAGE_OVERHEAD_KB=$((1024*1024))
 DEBUG=1
 ROOT_PASSWORD="mot2passe"
 DD="dd status=none"
@@ -184,7 +185,8 @@ cd ..
 fs_size_estimation=$(du -sk $ORIG_TREE | awk '{print $1}')
 work_image_size=$(( efi_partition_size_kb + 
                     BIOSBOOT_PARTITION_SIZE_KB + 
-                    4*fs_size_estimation))
+                    fs_size_estimation +
+                    MAX_WORK_IMAGE_OVERHEAD_KB))
 
 # step2: create work image structure
 rm -f $TMP_DD_FILE
