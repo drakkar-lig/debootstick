@@ -77,8 +77,9 @@ Note: it is also possible to test the UEFI boot with kvm, if you have the __ovmf
 
 Turning a docker container into a bootable image
 ------------------------------------------------
+__Docker__ is a convenient tool when setting up an operating system. But, at the end of the process, sometimes we want to run this operating system on a real machine, instead of a container. With `debootstick`, we can achieve this easily. Here are a few guidelines.
 
-We can retrieve the filesystem tree of a docker container by using the `docker export` command. However, since this command accepts a docker container and not a docker image, we will have to generate a container from the image first. Here is a way to do it:
+First, we can retrieve the filesystem tree of a docker container by using the `docker export` command. However, since this command accepts a docker container and not a docker image, we will have to generate a container from the image first. Here is a way to do it:
 ```
 $ docker run --name mycontainer ubuntu:14.04 true
 ```
@@ -90,36 +91,38 @@ $ mkdir mycontainer_fs
 $ cd mycontainer_fs/
 $ docker export mycontainer | tar xf -
 $ docker rm mycontainer   # not needed anymore
-$ cd ..
 ```
 
-We now have the filesystem tree in the directory `mycontainer_fs`:
+We now have the filesystem tree in the current directory `mycontainer_fs`:
 ```
-$ ls mycontainer_fs
+$ ls
 bin  boot  dev  etc  home  lib  lib64  media  mnt  opt  proc  root  run  sbin  srv  sys  tmp  usr  var
 $ 
 ```
 
 The OS embedded in official Ubuntu docker images is slightly customized. In particular, starting services is disallowed. We have to revert this:
 ```
-$ cd mycontainer_fs
 $ chroot .
 $ rm /usr/sbin/policy-rc.d
 $ dpkg-divert --remove /sbin/initctl
 $ mv /sbin/initctl.distrib /sbin/initctl
 $ exit	# from chroot
-$ cd ..
+```
+
+We also need the DNS to be properly configured inside the filesystem, for __debootstick__ to run correctly. (In the future, __debootstick__ should handle this itself.)
+```
+$ cp /etc/resolv.conf ./etc/resolv.conf
 ```
 
 We can now use debootstick:
 ```
+$ cd ..
 $ debootstick mycontainer_fs img_from_docker.dd
 ```
 
 And that's it. We have our image. 
 
 Before dumping it to a USB device, we may prefer to test it:
-
 ```
 $ cp img_from_docker.dd img_from_docker.dd-test
 $ truncate -s 2G img_from_docker.dd-test
