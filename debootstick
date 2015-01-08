@@ -18,8 +18,8 @@ DBSTCK_DIR="/usr/share/debootstick"
 
 usage_and_exit()
 {
-    echo "Usage: $0 <fs_tree_dir> <out_image_path>" >&2
-    exit
+    echo "Usage: debootstick [options] <fs_tree_dir> <out_image_path>" >&2
+    exit $1
 }
 
 abspath()
@@ -27,10 +27,27 @@ abspath()
     echo "$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
 }
 
+# check options
+while [ $# != 0 ] 
+do
+    case "$1" in
+        -h|--help)
+            usage_and_exit 0
+        ;;
+        -v|--version)
+            echo "debootstick $VERSION"
+            exit 0
+        ;;
+        *)
+            break
+        ;;
+    esac
+done
+
 # we need 2 args
 if [ -z "$2" ]
 then
-    usage_and_exit
+    usage_and_exit 1
 fi
 
 # ensure we are root
