@@ -145,7 +145,6 @@ Uncompressing...
 Ubuntu 14.04.1 LTS localhost ttyS0
 
 localhost login: root
-Password: 
 Welcome to Ubuntu 14.04.1 LTS ([...])
 [...]
 
