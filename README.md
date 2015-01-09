@@ -1,6 +1,6 @@
 debootstick
 ===========
-_Build Ubuntu bootable images the UNIX way._
+_Build customized and featureful Ubuntu-live sticks._
 
 Trivial example:
 ```
@@ -20,7 +20,7 @@ Generating a bootable image may be seen as a 3-steps process:
 2. Customize it
 3. Build a bootable image
 
-__debootstick__ takes care of step 3 only. As such, it follows the [UNIX philosophy](http://en.wikipedia.org/wiki/Unix_philosophy#Program_Design_in_the_UNIX_Environment). This limited scope makes it good at collaborating with other tools, such as __debootstrap__, __chroot__, or even __docker__.
+__debootstick__ takes care of step 3 only. As such, it follows the [UNIX philosophy](http://en.wikipedia.org/wiki/Unix_philosophy#Program_Design_in_the_UNIX_Environment): this limited scope makes it good at collaborating with other tools, such as __debootstrap__, __chroot__, or even __docker__.
 
 Embedded OS features
 --------------------
