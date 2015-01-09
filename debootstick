@@ -12,7 +12,6 @@ FS_OVERHEAD_PERCENT=15
 LVM_OVERHEAD_PERCENT=4
 MAX_WORK_IMAGE_OVERHEAD_KB=$((1024*1024))
 DEBUG=1
-ROOT_PASSWORD="mot2passe"
 DD="dd status=none"
 DBSTCK_DIR="/usr/share/debootstick"
 
@@ -28,6 +27,7 @@ abspath()
 }
 
 # check options
+root_password_request="NO_REQUEST"
 while [ $# != 0 ] 
 do
     case "$1" in
@@ -37,6 +37,14 @@ do
         -v|--version)
             echo "debootstick $VERSION"
             exit 0
+        ;;
+        --config-root-password-ask)
+            root_password_request="ASK"
+            shift
+        ;;
+        --config-root-password-none)
+            root_password_request="NO_PASSWORD"
+            shift
         ;;
         *)
             break
@@ -67,6 +75,28 @@ fi
 if [ ! -w $(dirname "$2") ] 
 then
     usage_and_exit
+fi
+
+# if we are here, command line is ok :)
+if [ "$root_password_request" == "ASK" ]
+then
+    while true
+    do
+        echo -n "Enter root password: "
+        read -s passwd1
+        echo
+        echo -n "Enter root password again: "
+        read -s passwd2
+        echo
+        if [ "$passwd1" = "$passwd2" ]
+        then
+            echo 'OK'
+            root_password_request="root:$passwd1"
+            break
+        else
+            echo 'Sorry, passwords do not match, please retry.'
+        fi
+    done
 fi
 
 ORIG_TREE="$(cd "$1"; pwd)"
@@ -228,7 +258,7 @@ mkdir -p opt/debootstick
 cp -rp $DBSTCK_DIR/scripts/live opt/debootstick/live
 cp -p $DBSTCK_DIR/scripts/create-image/chrooted-customization.sh .
 chroot . ./chrooted-customization.sh $CHROOTED_DEBUG \
-                $work_image_loop_device $ROOT_PASSWORD
+                $work_image_loop_device $root_password_request
 rm ./chrooted-customization.sh
 cat > dbstck.conf << EOF
 LVM_VG=$LVM_VG

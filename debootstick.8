@@ -45,6 +45,12 @@ Show summary of options.
 .TP
 .B \-v, \-\-version
 Show version of program.
+.TP
+.B \-\-config-root-password-ask
+Prompt for the root password of the embedded system and set it accordingly.
+.TP
+.B \-\-config-root-password-none
+Remove the root password of the embedded system (root login will not prompt any password).
 
 .SH EXAMPLES
 
@@ -66,7 +72,16 @@ Generate a filesystem tree:
 .B 3-
 Generate the bootable image:
 .br
-\fBdebootstick\fP /tmp/trusty_tree /tmp/img.dd
+\fBdebootstick\fP --config-root-password-ask /tmp/trusty_tree /tmp/img.dd
+.br
+Enter root password:
+.br
+Enter root password again:
+.br
+OK
+.br
+[...]
+.br
 
 .PP
 .B 4-

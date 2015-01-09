@@ -11,7 +11,7 @@ else
 fi
 
 loop_device=$1
-root_password=$2
+root_password_request=$2
 
 mount -t devtmpfs none /dev
 mount -t proc none /proc
@@ -76,7 +76,18 @@ exec /sbin/getty -L 115200 ttyS0 xterm
 EOF
 fi
 
-echo "root:$root_password" | chpasswd
+# set the root password if requested
+case "$root_password_request" in
+    "NO_REQUEST")
+        true            # nothing to do
+    ;;
+    "NO_PASSWORD")
+        passwd -d root  # remove root password
+    ;;
+    *)                  # change root password
+        echo "$root_password_request" | chpasswd
+    ;;
+esac
 
 # work around grub displaying error message with our LVM setup
 # note: even if the file etc/grub.d/10_linux is re-created

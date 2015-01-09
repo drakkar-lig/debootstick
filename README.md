@@ -5,7 +5,7 @@ _Build Ubuntu bootable images the UNIX way._
 Trivial example:
 ```
 $ debootstrap --arch=amd64 --variant=minbase trusty trusty_tree
-$ debootstick trusty_tree img.dd
+$ debootstick --config-root-password-none trusty_tree img.dd
 $ dd if=img.dd of=/dev/<your_device> bs=10M
 ```
 Your USB device now embeds a live Ubuntu system and can be booted on any amd64 computer (UEFI or BIOS).
@@ -50,9 +50,12 @@ Standard workflow: debootstrap, debootstick and kvm
  $ debootstrap --arch=amd64 --variant=minbase trusty /tmp/trusty_tree
  ```
  
-2. (Optionaly) customize it:
+2. Customize it:
  ```
- $ chroot /tmp/trusty_tree; [...]; exit
+ $ chroot /tmp/trusty_tree
+ $ passwd       # update root password
+ $ [...]        # other customizations
+ $ exit         # exit from chroot
  ```
  
 3. Generate the bootable image:
@@ -62,9 +65,9 @@ Standard workflow: debootstrap, debootstick and kvm
  
 4. Test it with kvm.
  ```
- $ cp /tmp/img.dd /tmp/img.dd-test    # let's work on a copy, our test is destructive
- $ truncate -s 2G /tmp/img.dd-test    # simulate a copy on a 2G-large USB stick
- $ kvm -hda /tmp/img.dd-test          # the test itself (BIOS mode)
+ $ cp /tmp/img.dd /tmp/img.dd-test  # let's work on a copy, our test is destructive
+ $ truncate -s 2G /tmp/img.dd-test  # simulate a copy on a 2G-large USB stick
+ $ kvm -hda /tmp/img.dd-test        # the test itself (BIOS mode)
  ```
  
 5. Copy the boot image to a USB stick or disk.
@@ -79,7 +82,7 @@ Turning a docker container into a bootable image
 ------------------------------------------------
 __Docker__ is a convenient tool when setting up an operating system. But, at the end of the process, sometimes we want to run this operating system on a real machine, instead of a container. With `debootstick`, we can achieve this easily. Here are a few guidelines.
 
-First, we can retrieve the filesystem tree of a docker container by using the `docker export` command. However, since this command accepts a docker container and not a docker image, we will have to generate a container from the image first. Here is a way to do it:
+First, we can retrieve the filesystem tree of a docker container by using the `docker export` command. However, since this command accepts a docker container and not a docker image, we will have to generate a container from the image first. Here is the most atomic way to do it:
 ```
 $ docker run --name mycontainer ubuntu:14.04 true
 ```
@@ -108,6 +111,12 @@ $ dpkg-divert --remove /sbin/initctl
 $ mv /sbin/initctl.distrib /sbin/initctl
 $ exit	# from chroot
 ```
+
+We have to set or delete the root password, to be able to login to our system.
+```
+$ chroot . passwd -d root
+```
+(Alternatively, we could add an option --config-root-password-[ask|none] when using __debootstick__ below.)
 
 We also need the DNS to be properly configured inside the filesystem, for __debootstick__ to run correctly. (In the future, __debootstick__ should handle this itself.)
 ```
