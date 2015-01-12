@@ -1,11 +1,11 @@
 #!/bin/bash
 set -e
+source /usr/share/debootstick/scripts/create-image/functions
 
 # constants
 VERSION='@VERSION@'     # updated at install time
 BIOSBOOT_PARTITION_SIZE_KB=1024
 IMAGE_SIZE_MARGIN_KB=0  # fs size estimation is enough pessimistic
-USB_SAMPLE_STICK_SIZE="2G"
 MKSQUASHFS_OPTS="-b 1M -comp xz"
 FAT_OVERHEAD_PERCENT=10
 FS_OVERHEAD_PERCENT=15
@@ -14,17 +14,6 @@ MAX_WORK_IMAGE_OVERHEAD_KB=$((1024*1024))
 DEBUG=1
 DD="dd status=none"
 DBSTCK_DIR="/usr/share/debootstick"
-
-usage_and_exit()
-{
-    echo "Usage: debootstick [options] <fs_tree_dir> <out_image_path>" >&2
-    exit $1
-}
-
-abspath()
-{
-    echo "$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
-}
 
 # check options
 root_password_request="NO_REQUEST"
@@ -104,13 +93,13 @@ STICK_OS_ID=$(uuidgen)
 LVM_VG="DBSTCK-$STICK_OS_ID"
 TMP_DIR=$(mktemp -d)
 DD_FILE="$(abspath "$2")"
-TMP_DD_FILE=$TMP_DIR/tmp.disk.dd
+DRAFT_DD_FILE=$TMP_DIR/tmp.disk.dd
 if [ "$DEBUG" = "1" ]
 then
     CHROOTED_DEBUG="--debug"
 fi
 
-make_ext4_fs()
+make_root_fs()
 {
     # IMPORTANT NOTE.
     # We try to create a USB stick as small as possible.
@@ -132,19 +121,17 @@ format_stick()
 {
     device=$1
     efi_partition_size_kb=$2
-    sgdisk  -n 1:0:+${efi_partition_size_kb}K -t 1:ef00 \
+    quiet sgdisk  -n 1:0:+${efi_partition_size_kb}K -t 1:ef00 \
             -n 2:0:+${BIOSBOOT_PARTITION_SIZE_KB}K -t 2:ef02 \
             -n 3:0:0 -t 3:8e00 $device
 }
 
-print_last_word()
-{
-    awk '{print $NF}'
-}
-
 make_compressed_fs()
 {   
-    echo "Compressing the system..."
+    # these operations (up to the squashfs compression below)
+    # should be fast: we are just removing or moving files 
+    # in the same filesystem
+
     fs_tree=$(cd $1; pwd)
     
     # we will work with two subdirectories, 
@@ -176,7 +163,10 @@ EOF
     mv sbin/init sbin/init.orig
     
     # create compressed image
-    mksquashfs $PWD $fs_tree/.fs.compressed/fs.squashfs $MKSQUASHFS_OPTS
+    quiet_mksquashfs "draft image - compressing (squashfs)" \
+            $PWD $fs_tree/.fs.compressed/fs.squashfs $MKSQUASHFS_OPTS
+
+    # the following operations should also be fast.
 
     # finalize compressed tree
     cd $fs_tree/.fs.compressed
@@ -209,9 +199,10 @@ compute_min_fs_size()
 
 mount -t tmpfs none $TMP_DIR
 cd $TMP_DIR
-mkdir -p work_root final_root efi/part efi/boot/grub
+mkdir -p draft_root final_root efi/part efi/boot/grub
 
-# step0: generate EFI bootloader image
+# step0: generate a UEFI bootloader binary
+echo -n "I: generating a UEFI bootloader binary... "
 cd efi
 cat > boot/grub/grub.cfg << EOF
 insmod part_gpt
@@ -226,39 +217,46 @@ grub-mkstandalone \
 efi_image_size_bytes=$(stat -c "%s" BOOTX64.efi)
 efi_partition_size_kb=$((efi_image_size_bytes/1024*100/(100-FAT_OVERHEAD_PERCENT)))
 cd ..
+echo done
 
 # step1: compute a stick size large enough for our work 
 # (i.e. not for the final minimized version)
+echo -n "I: draft image - computing a size large enough... "
 fs_size_estimation=$(du -sk $ORIG_TREE | awk '{print $1}')
-work_image_size=$(( efi_partition_size_kb + 
+draft_image_size=$(( efi_partition_size_kb + 
                     BIOSBOOT_PARTITION_SIZE_KB + 
                     fs_size_estimation +
                     MAX_WORK_IMAGE_OVERHEAD_KB))
+echo done
 
 # step2: create work image structure
-rm -f $TMP_DD_FILE
-$DD if=/dev/zero bs=${work_image_size}k seek=1 count=0 of=$TMP_DD_FILE
-work_image_loop_device=$(losetup -f)
-losetup $work_image_loop_device $TMP_DD_FILE
-format_stick $work_image_loop_device $efi_partition_size_kb
-kpartx -a $work_image_loop_device
-set -- $(kpartx -l $work_image_loop_device | awk '{ print "/dev/mapper/"$1 }')
+echo -n "I: draft image - partitioning and formatting... "
+rm -f $DRAFT_DD_FILE
+$DD if=/dev/zero bs=${draft_image_size}k seek=1 count=0 of=$DRAFT_DD_FILE
+draft_image_loop_device=$(losetup -f)
+losetup $draft_image_loop_device $DRAFT_DD_FILE
+format_stick $draft_image_loop_device $efi_partition_size_kb
+kpartx -a $draft_image_loop_device
+set -- $(kpartx -l $draft_image_loop_device | awk '{ print "/dev/mapper/"$1 }')
 sn_lvm_dev=$3
-pvcreate $sn_lvm_dev
-vgcreate $LVM_VG $sn_lvm_dev
-lvcreate -n ROOT -l 100%FREE ${LVM_VG}
+quiet pvcreate $sn_lvm_dev
+quiet vgcreate $LVM_VG $sn_lvm_dev
+quiet lvcreate -n ROOT -l 100%FREE ${LVM_VG}
 sn_root_dev=/dev/$LVM_VG/ROOT
-make_ext4_fs $sn_root_dev
-mount $sn_root_dev work_root
+make_root_fs $sn_root_dev
+mount $sn_root_dev draft_root
+echo done
 
 # step3: copy original tree to work image and modify it
-cd work_root/
+echo -n "I: draft image - copying filesystem tree... "
+cd draft_root/
 cp -rp $ORIG_TREE/* .
+echo done
 mkdir -p opt/debootstick
 cp -rp $DBSTCK_DIR/scripts/live opt/debootstick/live
 cp -p $DBSTCK_DIR/scripts/create-image/chrooted-customization.sh .
 chroot . ./chrooted-customization.sh $CHROOTED_DEBUG \
-                $work_image_loop_device $root_password_request
+                $draft_image_loop_device $root_password_request
 rm ./chrooted-customization.sh
 cat > dbstck.conf << EOF
 LVM_VG=$LVM_VG
@@ -266,24 +264,27 @@ EOF
 cd ..
 
 # step4: compress the filesystem tree
-make_compressed_fs work_root
+make_compressed_fs draft_root
 
 # step5: compute minimal size of final stick
+echo -n "I: final image - computing minimal image size... "
 cd $TMP_DIR
-min_fs_size_in_kbytes=$(compute_min_fs_size work_root)
-part3_start_sector=$(sgdisk -p $TMP_DD_FILE | tail -n 1 | awk '{print $2}')
-sector_size=$(sgdisk -p $TMP_DD_FILE | grep 'sector size' | awk '{print $(NF-1)}')
+min_fs_size_in_kbytes=$(compute_min_fs_size draft_root)
+part3_start_sector=$(sgdisk -p $DRAFT_DD_FILE | tail -n 1 | awk '{print $2}')
+sector_size=$(sgdisk -p $DRAFT_DD_FILE | grep 'sector size' | awk '{print $(NF-1)}')
 min_part3_size_in_kbytes=$((min_fs_size_in_kbytes * 100/(100-LVM_OVERHEAD_PERCENT)))
 min_stick_size_in_kbytes=$((    part3_start_sector / 1024 * sector_size +
                                 min_part3_size_in_kbytes +
                                 IMAGE_SIZE_MARGIN_KB))
+echo done
 
 # step6: copy work version to the final image (with minimal size)
 
 # rename existing lvm vg in order to avoid a conflict
-vgrename $LVM_VG ${LVM_VG}_WORK
+quiet vgrename $LVM_VG ${LVM_VG}_WORK
 
 # prepare a final image with minimal size
+echo -n "I: final image - partitioning and formatting... "
 rm -f $DD_FILE
 $DD bs=1024 seek=$min_stick_size_in_kbytes count=0 of=$DD_FILE
 # format the final image like the working one
@@ -294,21 +295,25 @@ kpartx -a $final_image_loop_device
 set -- $(kpartx -l $final_image_loop_device | awk '{ print "/dev/mapper/"$1 }')
 sn_efi_dev=$1
 sn_lvm_dev=$3
-pvcreate $sn_lvm_dev
-vgcreate ${LVM_VG} $sn_lvm_dev
-lvcreate -n ROOT -l 100%FREE $LVM_VG
+quiet pvcreate $sn_lvm_dev
+quiet vgcreate ${LVM_VG} $sn_lvm_dev
+quiet lvcreate -n ROOT -l 100%FREE $LVM_VG
 sn_root_dev=/dev/$LVM_VG/ROOT
-make_ext4_fs $sn_root_dev
+make_root_fs $sn_root_dev
+echo done
 mount $sn_root_dev final_root
-cp -rp work_root/* final_root/
-umount work_root
+echo -n "I: final image - copying content from draft image... "
+cp -rp draft_root/* final_root/
+echo done
+umount draft_root
 dmsetup remove /dev/${LVM_VG}_WORK/ROOT
-kpartx -d $work_image_loop_device
-losetup -d $work_image_loop_device
-rm -f $work_image_loop_device
+kpartx -d $draft_image_loop_device
+losetup -d $draft_image_loop_device
+rm -f $draft_image_loop_device
 
 # step7: install BIOS bootloader
 
+echo -n "I: final image - setting up the bootloader... "
 cd final_root
 # since the size of the filesystem mounted there is minimized,
 # creating new files may cause problems.
@@ -322,19 +327,23 @@ cp -p $DBSTCK_DIR/scripts/create-image/chrooted-grub-install.sh tmp
 chroot . tmp/busybox sh tmp/chrooted-grub-install.sh $final_image_loop_device
 umount tmp
 cd ..
+echo done
 
 umount final_root
 
 # step8: setup the EFI boot partition
-mkfs.vfat -n DBSTCK_EFI $sn_efi_dev
+echo -n "I: final image - setting up the EFI boot partition... "
+quiet mkfs.vfat -n DBSTCK_EFI $sn_efi_dev
 cd $TMP_DIR/efi
 mount $sn_efi_dev part
 mkdir -p part/EFI/BOOT
 mv BOOTX64.efi part/EFI/BOOT/
 umount part
 cd ..
+echo done
 
 # step9: clean up
+echo -n "I: cleaning up... "
 dmsetup remove /dev/${LVM_VG}/ROOT
 kpartx -d $final_image_loop_device
 losetup -d $final_image_loop_device
@@ -344,13 +353,6 @@ mkdir -p out
 chmod a+rw $DD_FILE
 umount -lf $TMP_DIR
 rm -rf $TMP_DIR
-echo $DD_FILE ready.
-
-echo " ---- to test it with kvm: ----"
-echo " * simulate copy on a larger USB stick by increasing the file size"
-echo "truncate -s $USB_SAMPLE_STICK_SIZE $DD_FILE"
-echo " * test it (BIOS):"
-echo "kvm -hda $DD_FILE -nographic"
-echo " * test it (EFI):"
-echo "kvm -bios /usr/share/qemu/OVMF.fd -hda $DD_FILE -nographic; reset"
+echo done
+echo "I: $DD_FILE ready."
 

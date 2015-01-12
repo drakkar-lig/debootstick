@@ -55,8 +55,8 @@ cat > device.map << END_MAP
 END_MAP
 
 # install
-grub-install $loop_device
-update-grub
+grub-install $loop_device 2>/dev/null
+update-grub 2>/dev/null
 
 # remove previous file
 rm /boot/grub/device.map

@@ -17,7 +17,7 @@ mount -t devtmpfs none /dev
 mount -t proc none /proc
 mount -t devpts none /dev/pts
 mount -t sysfs none /sys
-export DEBIAN_FRONTEND=noninteractive
+export DEBIAN_FRONTEND=noninteractive LANG=C
 
 cat > etc/apt/apt.conf.d/minimal << EOF
 DPkg::Post-Invoke { "rm -f /var/cache/apt/archives/*.deb /var/cache/apt/archives/partial/*.deb /var/cache/apt/*.bin || true"; };
@@ -36,7 +36,7 @@ cat > boot/grub/device.map << END_MAP
 END_MAP
 
 # install missing packages
-apt-get update -q
+apt-get update -qq
 to_be_installed=""
 for package in $PACKAGES
 do
@@ -49,11 +49,13 @@ fi
 done
 if [ "$to_be_installed" != "" ]
 then
-    apt-get -q -y --no-install-recommends install $to_be_installed
+    echo -n "I: draft image - installing packages:${to_be_installed}... "
+    apt-get -qq --no-install-recommends install $to_be_installed >/dev/null 2>&1
 fi
 
-apt-get -q clean
+apt-get -qq clean
 rm -rf /var/lib/apt/lists/*
+echo done
 
 # for text console in kvm
 if [ "$debug" = "1" ]
@@ -82,13 +84,14 @@ case "$root_password_request" in
         true            # nothing to do
     ;;
     "NO_PASSWORD")
-        passwd -d root  # remove root password
+        passwd -dq root  # remove root password
     ;;
     *)                  # change root password
         echo "$root_password_request" | chpasswd
     ;;
 esac
 
+echo -n "I: draft image - setting up bootloader... "
 # work around grub displaying error message with our LVM setup
 # note: even if the file etc/grub.d/10_linux is re-created
 # after an upgrade of the package grub-common, our script
@@ -103,9 +106,10 @@ rm etc/grub.d/10_linux
 # stick anyway), but actually it is:
 # the files created there should be accounted when
 # estimating the final stick minimal size).
-grub-install $loop_device
-update-grub
+grub-install $loop_device 2>/dev/null
+update-grub 2>/dev/null
 
 rm boot/grub/device.map
+echo done
 
 umount /sys /dev/pts /proc /dev

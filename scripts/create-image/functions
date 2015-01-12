@@ -1,0 +1,51 @@
+
+usage_and_exit()
+{
+    echo "Usage: debootstick [options] <fs_tree_dir> <out_image_path>" >&2
+    exit $1
+}
+
+abspath()
+{
+    echo "$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
+}
+
+io_unbuffered_mksquashfs()
+{
+    script -q -c "mksquashfs $*" /dev/null
+}
+
+io_unbuffered_tr()
+{
+    stdbuf -i0 -o0 -e0 tr $*
+}
+
+io_unbuffered_grep()
+{
+    stdbuf -i0 -o0 -e0 grep $*
+}
+
+quiet_mksquashfs()
+{
+    task_name=$1
+    shift
+    
+    io_unbuffered_mksquashfs $* | io_unbuffered_tr '\n[' '&\n'              \
+                                | io_unbuffered_grep -oE "[0-9]+/[0-9]+"    \
+                                | while read ratio
+                                  do
+                                        echo -en "I: $task_name... $((100*$ratio))%\r"
+                                  done
+    echo -e "I: $task_name... done"
+}
+
+quiet()
+{
+    $* >/dev/null
+}
+
+print_last_word()
+{
+    awk '{print $NF}'
+}
+
