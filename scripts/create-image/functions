@@ -1,3 +1,4 @@
+#!/bin/bash
 
 usage_and_exit()
 {
@@ -29,7 +30,7 @@ quiet_mksquashfs()
 {
     task_name=$1
     shift
-    
+
     io_unbuffered_mksquashfs $* | io_unbuffered_tr '\n[' '&\n'              \
                                 | io_unbuffered_grep -oE "[0-9]+/[0-9]+"    \
                                 | while read ratio
@@ -47,5 +48,142 @@ quiet()
 print_last_word()
 {
     awk '{print $NF}'
+}
+
+make_root_fs()
+{
+    # IMPORTANT NOTE.
+    # We try to create a USB stick as small as possible.
+    # However, the embedded system may later by copied on a
+    # potentially large disk.
+    # Therefore, we specify the option '-T default' to mkfs.ext4.
+    # This allows to select 'default' ext4 features even if this
+    # filesystem might be considered 'small' for now.
+    # This may seem cosmetic but it's not: if we omit this,
+    # when we move to a large disk, resize2fs apparently enables
+    # the 'meta_bg' option (supposedly trying to adapt as much as
+    # possible this 'small' filesystem to a much larger device).
+    # Since this option is not handled by grub, it prevents the
+    # system from booting properly.
+    mkfs.ext4 -F -q -L ROOT -T default -m 2 $1
+}
+
+partition_stick()
+{
+    device=$1
+    efi_partition_size_kb=$2
+    quiet sgdisk \
+            -n 1:0:+${efi_partition_size_kb}K -t 1:ef00 \
+            -n 2:0:+${BIOSBOOT_PARTITION_SIZE_KB}K -t 2:ef02 \
+            -n 3:0:0 -t 3:8e00 $device
+}
+
+create_formatted_image()
+{
+    image_name=$1
+    stick_size_kb=$2
+    efi_partition_size_kb=$3
+    lvm_vg=$4
+    image_file="$5"
+    if [ -z "$image_file" ]
+    then
+        mkdir -p $TMP_DIR/$image_name
+        image_file=$TMP_DIR/$image_name/file
+    fi
+    
+    # create image file
+    rm -f "$image_file"
+    $DD bs=1024 seek=$stick_size_kb count=0 of="$image_file"
+
+    # partition it
+    partition_stick "$image_file" $efi_partition_size_kb
+
+    # let the kernel know about this device
+    image_device=$(losetup -f)
+    losetup $image_device "$image_file"
+    kpartx -a $image_device
+
+    # retrieve the partition devices
+    set -- $(kpartx -l $image_device | awk '{ print "/dev/mapper/"$1 }')
+    image_efipart_device=$1
+    image_lvmpart_device=$3
+
+    # create an lvm volume
+    quiet pvcreate $image_lvmpart_device
+    quiet vgcreate $lvm_vg $image_lvmpart_device
+    quiet lvcreate -n ROOT -l 100%FREE $lvm_vg
+
+    # format this lvm volume
+    image_lvroot_device=/dev/$lvm_vg/ROOT
+    make_root_fs $image_lvroot_device
+
+    # format the efi partition
+    quiet mkfs.vfat -n DBSTCK_EFI $image_efipart_device
+
+    # mount efi partition and root volume
+    image_lvroot_mountpoint=$TMP_DIR/$image_name/lvroot
+    image_efipart_mountpoint=$TMP_DIR/$image_name/efipart
+    mkdir -p $image_lvroot_mountpoint $image_efipart_mountpoint
+    mount $image_lvroot_device $image_lvroot_mountpoint
+    mount $image_efipart_device $image_efipart_mountpoint
+
+    # let the calling code know what we have done
+    eval "$(cat << EOF
+${image_name}_file="$image_file"
+${image_name}_device=$image_device
+${image_name}_efipart_device=$image_efipart_device
+${image_name}_efipart_mountpoint=$image_efipart_mountpoint
+${image_name}_lvm_vg=$lvm_vg
+${image_name}_lvmpart_device=$image_lvmpart_device
+${image_name}_lvroot_device=$image_lvroot_device
+${image_name}_lvroot_mountpoint=$image_lvroot_mountpoint
+EOF
+    )"
+}
+
+release_image()
+{
+    # read variables with prefix $1=<image_type>
+    eval "$(cat << EOF
+image_name=${1}
+image_file="\${${1}_file}"
+image_device=\${${1}_device}
+image_efipart_mountpoint=\${${1}_efipart_mountpoint}
+image_lvm_vg=\${${1}_lvm_vg}
+image_lvroot_mountpoint=\${${1}_lvroot_mountpoint}
+EOF
+    )"
+    
+    # detach things
+    umount $image_efipart_mountpoint $image_lvroot_mountpoint
+    dmsetup remove /dev/$image_lvm_vg/ROOT
+    kpartx -d $image_device
+    losetup -d $image_device
+}
+
+quiet_grub_install()
+{
+    device=$1
+
+    # grub-install & update-grub print
+    # messages to standard error stream
+    # although most of these are just
+    # informational. Let's discard them.
+    {
+        grub-install $device    && \
+        update-grub
+        return_code=$?
+    } 2>&1 |    grep -v "No error"          | \
+                grep -v "Installing"        | \
+                grep -v "Generating"        | \
+                grep -v "Found .* image:"   | \
+                grep -vx "done" 1>&2        || true
+    
+    # grep returns non-zero if no line is found.
+    # in our case, having no error line is a good
+    # thing, thus the or-true construct.
+    # the return value we want is the one we stored
+    # earlier:
+    return $return_code
 }
 

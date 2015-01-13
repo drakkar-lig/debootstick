@@ -2,6 +2,8 @@
 # by "/tmp/busybox sh", and lintian emits a warning.
 loop_device=$1
 
+eval "$chrooted_functions"
+
 # classical mounts
 mount -t devtmpfs none /dev
 mount -t proc none /proc
@@ -55,8 +57,7 @@ cat > device.map << END_MAP
 END_MAP
 
 # install
-grub-install $loop_device 2>/dev/null
-update-grub 2>/dev/null
+quiet_grub_install $loop_device
 
 # remove previous file
 rm /boot/grub/device.map

@@ -1,6 +1,7 @@
 #!/bin/bash
 set -e
 PACKAGES="linux-image-generic lvm2 busybox-static gdisk grub-pc"
+eval "$chrooted_functions"
 
 if [ "$1" = "--debug" ]
 then
@@ -106,8 +107,7 @@ rm etc/grub.d/10_linux
 # stick anyway), but actually it is:
 # the files created there should be accounted when
 # estimating the final stick minimal size).
-grub-install $loop_device 2>/dev/null
-update-grub 2>/dev/null
+quiet_grub_install $loop_device
 
 rm boot/grub/device.map
 echo done
