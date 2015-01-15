@@ -1,7 +1,7 @@
 #!/bin/bash
-set -e
 PACKAGES="linux-image-generic lvm2 busybox-static gdisk grub-pc"
 eval "$chrooted_functions"
+start_failsafe_mode
 
 if [ "$1" = "--debug" ]
 then
@@ -14,10 +14,7 @@ fi
 loop_device=$1
 root_password_request=$2
 
-mount -t devtmpfs none /dev
-mount -t proc none /proc
-mount -t devpts none /dev/pts
-mount -t sysfs none /sys
+mount_virtual_filesystems
 export DEBIAN_FRONTEND=noninteractive LANG=C
 
 cat > etc/apt/apt.conf.d/minimal << EOF
@@ -37,7 +34,9 @@ cat > boot/grub/device.map << END_MAP
 END_MAP
 
 # install missing packages
+echo -n "I: draft image - updating package manager database... "
 apt-get update -qq
+echo done
 to_be_installed=""
 for package in $PACKAGES
 do
@@ -52,11 +51,11 @@ if [ "$to_be_installed" != "" ]
 then
     echo -n "I: draft image - installing packages:${to_be_installed}... "
     apt-get -qq --no-install-recommends install $to_be_installed >/dev/null 2>&1
+    echo done
 fi
 
 apt-get -qq clean
 rm -rf /var/lib/apt/lists/*
-echo done
 
 # for text console in kvm
 if [ "$debug" = "1" ]
@@ -112,4 +111,6 @@ quiet_grub_install $loop_device
 rm boot/grub/device.map
 echo done
 
-umount /sys /dev/pts /proc /dev
+# umount all
+undo_all
+

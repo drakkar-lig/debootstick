@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# basic routines
+# --------------
 usage_and_exit()
 {
     echo "Usage: debootstick [options] <fs_tree_dir> <out_image_path>" >&2
@@ -11,9 +13,202 @@ abspath()
     echo "$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
 }
 
+print_last_word()
+{
+    awk '{print $NF}'
+}
+
+busybox_mount()
+{
+    $busybox_path mount $*
+}
+
+mount_virtual_filesystems()
+{
+    failsafe mount -t devtmpfs none /dev
+    failsafe mount -t proc none /proc
+    failsafe mount -t devpts none /dev/pts
+    failsafe mount -t sysfs none /sys
+}
+
+# failsafe mode handling
+# ----------------------
+# we want to leave the system in a clean state, 
+# whatever happens. 
+# for example, if a "disk full" error happens 
+# in the middle of the chrooted-customization 
+# step, we should be able to umount what have
+# been mounted in the chroot, exit the chroot,
+# umount things and remove peripherals created 
+# by debootstick outside the chroot, before 
+# exiting.
+# we handle this by trapping the EXIT
+# of the scripts. Also, each command creating
+# a persistent artefact (mounts, devices, etc.) 
+# is recorded, in order to be able to 'undo the 
+# command' (i.e. remove the artefacts) if needed.
+
+undo_all()
+{
+    # run saved failsafe commands prefixed with 'undo_'
+    eval "$(echo -n "$failsafe_commands" | \
+            awk '{print "undo_" $0}')"
+
+    # flush variable 'failsafe_commands'
+    failsafe_commands=""
+}
+
+on_exit()
+{   # save exit code
+    res=$?
+
+    # get args
+    toplevel=0
+    if [ "$1" == "--toplevel" ]
+    then
+        toplevel=1
+        shift
+    fi 
+    cleanup_function=$1
+
+    # undo operations (remove artefacts)
+    if [ $res -gt 0 -a $toplevel -eq 1 ]
+    then
+        echo
+        echo "E: an error occured."
+        echo -n "I: restoring a clean state... "
+        undo_all
+        echo "done"
+    else
+        undo_all
+    fi
+
+    # call an additional cleanup function 
+    # if provided.
+    if [ ! -z "$cleanup_function" ]
+    then
+        $cleanup_function $res
+    fi
+
+    return $res
+}
+
+start_failsafe_mode()
+{
+    # stop if an error occurs
+    set -e
+    # clean remaining artefacts before exitting
+    trap "on_exit $*" EXIT
+}
+
+undo_mount_with_prefix()
+{
+    # I know 2 usual things that could cause umount
+    # to fail with an error reporting that 'device is busy'.
+    # Either one process has its current directory on this 
+    # mount, or there is cached data that was not yet
+    # written to disk. We handle these below.
+    for last; do true; done # retrieve last arg
+    cd / # just in case we would be on the mountpoint
+    # some say that a sync request is treated asynchronously.
+    # but if a second one comes in, then the first one is 
+    # forced. Thus the 2 requests in row:
+    sync; sync
+    $1 umount "$last"
+}
+
+undo_mount()
+{
+    undo_mount_with_prefix "" $*
+}
+
+undo_busybox_mount()
+{
+    undo_mount_with_prefix "$busybox_path" $*
+}
+
+undo_mkdir()
+{
+    for last; do true; done # retrieve last arg
+    rm -rf "$last"
+}
+
+undo_losetup()
+{   # we assume the failsafe command was 
+    # $ failsafe losetup <loop_device> <file>
+    losetup -d "$1"
+}
+
+undo_kpartx()
+{   # we assume the failsafe command was 
+    # $ failsafe kpartx -a <disk_device>
+    disk_device="$2"
+
+    # we have to detach lvm devices associated
+    # to the <disk_device>, then keep the related
+    # partition in a busy state otherwise. 
+    # Retrieving these devices is not so easy...
+    partitions=$(kpartx -l $disk_device | \
+                    awk '{ print "/dev/mapper/"$1 }')
+    vg_names=$(pvs -o vg_name --noheadings $partitions 2>/dev/null || true)
+    if [ ! -z "$vg_names" ]
+    then
+        lv_devices=$(lvs -o vg_name,lv_name --noheadings $vg_names | \
+                        awk '{print "/dev/" $1 "/" $2}')
+        for lv_device in $lv_devices
+        do 
+            dmsetup remove $lv_device
+        done
+    fi
+
+    # we can now request the kernel to remove
+    # <disk_device> partitions
+    kpartx -d "$disk_device"
+}
+
+undo_chroot()
+{
+    exit
+}
+
+failsafe()
+{
+    $*  &&  \
+    failsafe_commands="$( 
+        echo "$*"
+        echo -n "$failsafe_commands"
+    )"
+}
+
+undo()
+{
+    # undo-ing one failsafe operation only
+
+    # we have to remove this operation from 
+    # variable 'failsafe_commands'.
+    # first, we escape it in order to use
+    # it in a sed statement below.
+    escaped_cmd="$(
+        echo "$*" | \
+            sed -e 's/[\/&]/\\&/g')"
+    # and now we remove it
+    failsafe_commands="$(
+        echo -n "$failsafe_commands" | \
+            sed -e "/^$escaped_cmd\$/d"
+    )"
+    
+    # of course we really undo it
+    eval "undo_$*"
+}
+
+# functions related to verbosity reduction
+# ----------------------------------------
 io_unbuffered_mksquashfs()
 {
-    script -q -c "mksquashfs $*" /dev/null
+    echo 1 > $mksquashfs_result_file	# default value
+    script -q \
+        -c "mksquashfs $* && echo 0 > $mksquashfs_result_file" \
+        /dev/null
 }
 
 io_unbuffered_tr()
@@ -30,6 +225,8 @@ quiet_mksquashfs()
 {
     task_name=$1
     shift
+    
+    mksquashfs_result_file=$(mktemp)
 
     io_unbuffered_mksquashfs $* | io_unbuffered_tr '\n[' '&\n'              \
                                 | io_unbuffered_grep -oE "[0-9]+/[0-9]+"    \
@@ -37,7 +234,42 @@ quiet_mksquashfs()
                                   do
                                         echo -en "I: $task_name... $((100*$ratio))%\r"
                                   done
-    echo -e "I: $task_name... done"
+    mksquashfs_return_value=$(cat $mksquashfs_result_file)
+    rm $mksquashfs_result_file    
+
+    if [ "$mksquashfs_return_value" = "0" ]
+    then
+        echo -e "I: $task_name... done"
+    else
+        echo -e "I: $task_name... failed"
+    fi
+    return $mksquashfs_return_value
+}
+
+quiet_grub_install()
+{
+    device=$1
+
+    # grub-install & update-grub print
+    # messages to standard error stream
+    # although most of these are just
+    # informational. Let's discard them.
+    {
+        grub-install $device    && \
+        update-grub
+        return_code=$?
+    } 2>&1 |    grep -v "No error"          | \
+                grep -v "Installing"        | \
+                grep -v "Generating"        | \
+                grep -v "Found .* image:"   | \
+                grep -vx "done" 1>&2        || true
+    
+    # grep returns non-zero if no line is found.
+    # in our case, having no error line is a good
+    # thing, thus the or-true construct.
+    # the return value we want is the one we stored
+    # earlier:
+    return $return_code
 }
 
 quiet()
@@ -45,11 +277,8 @@ quiet()
     $* >/dev/null
 }
 
-print_last_word()
-{
-    awk '{print $NF}'
-}
-
+# functions related to partitioning and formatting
+# ------------------------------------------------
 make_root_fs()
 {
     # IMPORTANT NOTE.
@@ -87,8 +316,8 @@ create_formatted_image()
     image_file="$5"
     if [ -z "$image_file" ]
     then
-        mkdir -p $TMP_DIR/$image_name
-        image_file=$TMP_DIR/$image_name/file
+        mkdir -p $DBSTCK_TMPDIR/$image_name
+        image_file=$DBSTCK_TMPDIR/$image_name/file
     fi
     
     # create image file
@@ -100,8 +329,8 @@ create_formatted_image()
 
     # let the kernel know about this device
     image_device=$(losetup -f)
-    losetup $image_device "$image_file"
-    kpartx -a $image_device
+    failsafe losetup $image_device "$image_file"
+    failsafe kpartx -a $image_device
 
     # retrieve the partition devices
     set -- $(kpartx -l $image_device | awk '{ print "/dev/mapper/"$1 }')
@@ -121,11 +350,11 @@ create_formatted_image()
     quiet mkfs.vfat -n DBSTCK_EFI $image_efipart_device
 
     # mount efi partition and root volume
-    image_lvroot_mountpoint=$TMP_DIR/$image_name/lvroot
-    image_efipart_mountpoint=$TMP_DIR/$image_name/efipart
+    image_lvroot_mountpoint=$DBSTCK_TMPDIR/$image_name/lvroot
+    image_efipart_mountpoint=$DBSTCK_TMPDIR/$image_name/efipart
     mkdir -p $image_lvroot_mountpoint $image_efipart_mountpoint
-    mount $image_lvroot_device $image_lvroot_mountpoint
-    mount $image_efipart_device $image_efipart_mountpoint
+    failsafe mount $image_lvroot_device $image_lvroot_mountpoint
+    failsafe mount $image_efipart_device $image_efipart_mountpoint
 
     # let the calling code know what we have done
     eval "$(cat << EOF
@@ -143,47 +372,23 @@ EOF
 
 release_image()
 {
-    # read variables with prefix $1=<image_type>
+    # read variables with prefix $1=draft or $1=final
     eval "$(cat << EOF
 image_name=${1}
 image_file="\${${1}_file}"
 image_device=\${${1}_device}
+image_efipart_device=\${${1}_efipart_device}
 image_efipart_mountpoint=\${${1}_efipart_mountpoint}
 image_lvm_vg=\${${1}_lvm_vg}
+image_lvroot_device=\${${1}_lvroot_device}
 image_lvroot_mountpoint=\${${1}_lvroot_mountpoint}
 EOF
     )"
-    
+
     # detach things
-    umount $image_efipart_mountpoint $image_lvroot_mountpoint
-    dmsetup remove /dev/$image_lvm_vg/ROOT
-    kpartx -d $image_device
-    losetup -d $image_device
-}
-
-quiet_grub_install()
-{
-    device=$1
-
-    # grub-install & update-grub print
-    # messages to standard error stream
-    # although most of these are just
-    # informational. Let's discard them.
-    {
-        grub-install $device    && \
-        update-grub
-        return_code=$?
-    } 2>&1 |    grep -v "No error"          | \
-                grep -v "Installing"        | \
-                grep -v "Generating"        | \
-                grep -v "Found .* image:"   | \
-                grep -vx "done" 1>&2        || true
-    
-    # grep returns non-zero if no line is found.
-    # in our case, having no error line is a good
-    # thing, thus the or-true construct.
-    # the return value we want is the one we stored
-    # earlier:
-    return $return_code
+    undo mount $image_efipart_device $image_efipart_mountpoint
+    undo mount $image_lvroot_device $image_lvroot_mountpoint
+    undo kpartx -a $image_device
+    undo losetup $image_device "$image_file"
 }
 

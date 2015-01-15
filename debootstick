@@ -1,5 +1,4 @@
 #!/bin/bash
-set -e
 
 # constants
 VERSION='@VERSION@'     # updated at install time
@@ -94,12 +93,23 @@ fi
 ORIG_TREE="$(cd "$1"; pwd)"
 STICK_OS_ID=$(uuidgen)
 LVM_VG="DBSTCK-$STICK_OS_ID"
-TMP_DIR=$(mktemp -d)
+DBSTCK_TMPDIR=$(mktemp -du --tmpdir tmp.dbstck.XXXXX.d)
 final_image_path="$(abspath "$2")"
 if [ "$DEBUG" = "1" ]
 then
     CHROOTED_DEBUG="--debug"
 fi
+
+final_cleanup()
+{
+    return_code=$1
+    if [ "$1" -gt 0 ]   # if error
+    then
+        rm -f $final_image_path
+    fi
+}
+
+start_failsafe_mode --toplevel final_cleanup
 
 make_compressed_fs()
 {   
@@ -158,7 +168,7 @@ EOF
     rm -rf .fs.orig .fs.compressed
 
     # leave the file system (allow unmounting it...)
-    cd $TMP_DIR
+    cd $DBSTCK_TMPDIR
 }
 
 compute_min_fs_size()
@@ -172,8 +182,8 @@ compute_min_fs_size()
 	echo $min_fs_size_kb
 }
 
-mount -t tmpfs none $TMP_DIR
-cd $TMP_DIR
+failsafe mkdir -p $DBSTCK_TMPDIR
+cd $DBSTCK_TMPDIR
 mkdir -p efi/part efi/boot/grub
 
 # step0: generate a UEFI bootloader binary
@@ -234,7 +244,7 @@ make_compressed_fs $draft_lvroot_mountpoint
 
 # step5: compute minimal size of final stick
 echo -n "I: final image - computing minimal image size... "
-cd $TMP_DIR
+cd $DBSTCK_TMPDIR
 min_fs_size_kb=$(compute_min_fs_size $draft_lvroot_mountpoint)
 part3_start_sector=$(sgdisk -p $draft_file | tail -n 1 | awk '{print $2}')
 sector_size=$(sgdisk -p $draft_file | grep 'sector size' | awk '{print $(NF-1)}')
@@ -267,30 +277,29 @@ cd $final_lvroot_mountpoint
 # since the size of the filesystem mounted there is minimized,
 # creating new files may cause problems.
 # so we will use the directory /tmp that we mount in memory.
-mount -t tmpfs none tmp
+failsafe mount -t tmpfs none $final_lvroot_mountpoint/tmp
 # /bin will be bind-mounted (see chrooted-grub-install.sh), 
 # making /bin/busybox unaccessible.
 # So we will use a copy in /tmp instead.
 cp -p bin/busybox tmp
 cp -p $DBSTCK_DIR/scripts/create-image/chrooted-grub-install.sh tmp
 chroot . tmp/busybox sh tmp/chrooted-grub-install.sh $final_device
-umount tmp
+undo mount -t tmpfs none $final_lvroot_mountpoint/tmp
 cd ..
 echo done
 
 # step8: setup the EFI boot partition
 echo -n "I: final image - setting up the EFI boot partition... "
 mkdir -p $final_efipart_mountpoint/EFI/BOOT
-mv $TMP_DIR/efi/BOOTX64.efi $final_efipart_mountpoint/EFI/BOOT/
+mv $DBSTCK_TMPDIR/efi/BOOTX64.efi $final_efipart_mountpoint/EFI/BOOT/
 echo done
 
 # step9: clean up
 echo -n "I: cleaning up... "
 release_image final
+undo mkdir -p $DBSTCK_TMPDIR
+echo done
 
 chmod a+rw $final_image_path
-umount -lf $TMP_DIR
-rm -rf $TMP_DIR
-echo done
 echo "I: $final_image_path ready."
 

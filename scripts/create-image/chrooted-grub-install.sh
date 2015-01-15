@@ -3,12 +3,12 @@
 loop_device=$1
 
 eval "$chrooted_functions"
+start_failsafe_mode
 
 # classical mounts
-mount -t devtmpfs none /dev
-mount -t proc none /proc
-mount -t devpts none /dev/pts
-mount -t sysfs none /sys
+mount_virtual_filesystems
+
+export busybox_path="/tmp/busybox"
 
 # The current filesystem root is a very limited system, mostly
 # reduced to /bin/busybox and a compressed filesystem image 
@@ -34,18 +34,17 @@ mount -t sysfs none /sys
 # the dynamic libraries needed by '/bin/mount' would fail to load.
 cd /tmp
 mkdir compressed_fs
-mount -t squashfs -o ro /fs.squashfs compressed_fs
+failsafe mount -t squashfs -o ro /fs.squashfs /tmp/compressed_fs
 cd compressed_fs
 for dir in $(ls -A)
 do  # consider sub-dirs, and skip /tmp
     if [ -d $dir -a $dir != "tmp" ]
     then
         # ignore empty sub-dirs
-        if [ "$(/tmp/busybox ls -A $dir)" ]
+        if [ "$($busybox_path ls -A $dir)" ]
         then
-            /tmp/busybox mkdir -p /$dir
-            /tmp/busybox mount -o bind,ro $dir /$dir
-            /tmp/busybox echo /$dir >> /tmp/tmp_mounts
+            $busybox_path mkdir -p /$dir
+            failsafe busybox_mount -o bind,ro $dir /$dir
         fi
     fi
 done
@@ -63,8 +62,5 @@ quiet_grub_install $loop_device
 rm /boot/grub/device.map
 
 # umount things
-# (here also we must enforce the use of the busybox umount applet) 
-/tmp/busybox umount $(cat /tmp/tmp_mounts)
-umount /tmp/compressed_fs
-umount /sys /dev/pts /proc /dev
+undo_all
 
