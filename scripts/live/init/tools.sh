@@ -10,6 +10,24 @@ dir_size()
     du -smx "$1" | awk '{print $1}'
 }
 
+generate_mtab()
+{
+    findmnt -rnu -o SOURCE,TARGET,FSTYPE,OPTIONS > /etc/mtab
+}
+
+fs_available_size()
+{
+    df -m --output=avail "$1" | tail -n 1
+}
+
+drop_to_shell_and_halt()
+{
+    echo "Dropping to a shell. (Exiting will stop the system.)"
+    bash
+    echo "Stopping the system..."
+    halt -fp
+}
+
 show_progress_bar()
 {
     achieved=$1
