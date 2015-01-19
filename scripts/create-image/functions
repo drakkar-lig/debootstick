@@ -31,6 +31,13 @@ mount_virtual_filesystems()
     failsafe mount -t sysfs none /sys
 }
 
+ceil()
+{
+    divide=$1
+    by=$2
+    echo $(((divide+by-1)/by))
+}
+
 # failsafe mode handling
 # ----------------------
 # we want to leave the system in a clean state, 

@@ -94,7 +94,8 @@ ORIG_TREE="$(cd "$1"; pwd)"
 STICK_OS_ID=$(uuidgen)
 LVM_VG="DBSTCK-$STICK_OS_ID"
 DBSTCK_TMPDIR=$(mktemp -du --tmpdir tmp.dbstck.XXXXX.d)
-final_image_path="$(abspath "$2")"
+final_image_path="$2"
+final_image_abspath="$(abspath "$2")"
 if [ "$DEBUG" = "1" ]
 then
     CHROOTED_DEBUG="--debug"
@@ -105,7 +106,7 @@ final_cleanup()
     return_code=$1
     if [ "$1" -gt 0 ]   # if error
     then
-        rm -f $final_image_path
+        rm -f $final_image_abspath
     fi
 }
 
@@ -184,7 +185,7 @@ compute_min_fs_size()
 
 failsafe mkdir -p $DBSTCK_TMPDIR
 cd $DBSTCK_TMPDIR
-mkdir -p efi/part efi/boot/grub
+mkdir -p efi/part efi/boot/grub squashfs.mp
 
 # step0: generate a UEFI bootloader binary
 echo -n "I: generating a UEFI bootloader binary... "
@@ -234,13 +235,18 @@ cp -p $DBSTCK_DIR/scripts/create-image/chrooted-customization.sh .
 chroot . ./chrooted-customization.sh $CHROOTED_DEBUG \
                 $draft_device $root_password_request
 rm ./chrooted-customization.sh
-cat > dbstck.conf << EOF
-LVM_VG=$LVM_VG
-EOF
 cd ..
 
-# step4: compress the filesystem tree
+# step4: compress the filesystem tree 
+# and estimate size of squashfs contents
 make_compressed_fs $draft_lvroot_mountpoint
+with mount -t squashfs -o ro \
+        $draft_lvroot_mountpoint/fs.squashfs $DBSTCK_TMPDIR/squashfs.mp; do
+    squashfs_content_kb_no_overhead=$(
+                du -sk $DBSTCK_TMPDIR/squashfs.mp | awk '{print $1}')
+done
+squashfs_content_kb_fs_overhead=$((squashfs_content_kb_no_overhead*100/(100-FS_OVERHEAD_PERCENT)))
+squashfs_content_kb=$((squashfs_content_kb_fs_overhead*100/(100-LVM_OVERHEAD_PERCENT)))
 
 # step5: compute minimal size of final stick
 echo -n "I: final image - computing minimal image size... "
@@ -249,9 +255,12 @@ min_fs_size_kb=$(compute_min_fs_size $draft_lvroot_mountpoint)
 part3_start_sector=$(sgdisk -p $draft_file | tail -n 1 | awk '{print $2}')
 sector_size=$(sgdisk -p $draft_file | grep 'sector size' | awk '{print $(NF-1)}')
 min_part3_size_kb=$((min_fs_size_kb * 100/(100-LVM_OVERHEAD_PERCENT)))
-min_stick_size_kb=$((    part3_start_sector / 1024 * sector_size +
+final_stick_size_kb=$((    part3_start_sector / 1024 * sector_size +
                                 min_part3_size_kb +
                                 IMAGE_SIZE_MARGIN_KB))
+# compute min stick size needed for decompression step
+min_stick_size_decomp_kb=$((final_stick_size_kb+squashfs_content_kb))
+min_stick_size_decomp_gb=$(ceil $min_stick_size_decomp_kb $((1024*1024)))
 echo done
 
 # step6: copy work version to the final image (with minimal size)
@@ -260,15 +269,21 @@ echo done
 echo -n "I: final image - partitioning and formatting... "
 create_formatted_image \
         final \
-        $min_stick_size_kb \
+        $final_stick_size_kb \
         $efi_partition_size_kb \
         ${LVM_VG} \
-        $final_image_path
+        $final_image_abspath
 echo done
 echo -n "I: final image - copying content from draft image... "
 cp -rp $draft_lvroot_mountpoint/* $final_lvroot_mountpoint/
 echo done
 release_image draft     # not needed anymore
+
+# add the dbstck.conf file
+cat > $final_lvroot_mountpoint/dbstck.conf << EOF
+LVM_VG=$LVM_VG
+DEVICE_MIN_SIZE_KB=$min_stick_size_decomp_kb
+EOF
 
 # step7: install BIOS bootloader
 
@@ -300,6 +315,7 @@ release_image final
 undo mkdir -p $DBSTCK_TMPDIR
 echo done
 
-chmod a+rw $final_image_path
-echo "I: $final_image_path ready."
+chmod a+rw $final_image_abspath
+stick_size_mb=$(du -sm $final_image_abspath | awk '{print $1}')
+echo "I: $final_image_path ready (size: ${stick_size_mb}Mb). It will work on ${min_stick_size_decomp_gb}Gb and larger devices."
 
