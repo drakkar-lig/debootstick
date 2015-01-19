@@ -99,6 +99,15 @@ start_failsafe_mode()
     set -e
     # clean remaining artefacts before exitting
     trap "on_exit $*" EXIT
+
+    # allow with constructs (see f_with function)
+    alias with="while f_with"
+
+    # bash does not expand aliases by default,
+    # when running a script.
+    # busybox sh does, and has no such configuration
+    # option (thus the error ignoring construct)
+    shopt -s expand_aliases 2>/dev/null || true
 }
 
 undo_mount_with_prefix()
@@ -200,6 +209,50 @@ undo()
     # of course we really undo it
     eval "undo_$*"
 }
+
+# the function f_with() allows constructs like
+# with mount [...]; do
+#   [...]
+# done
+#
+# The unmount-ing will be done at the end of the
+# block regardless of what happens inside (issue raised
+# or not).
+#
+# 'with' is actually an alias involving this function
+# and a while loop:
+# with -> while f_with   (see 'start_failsafe_mode')
+#
+# we ensure that the while loop stops at the 2nd
+# iteration.
+f_with()
+{
+    # save the command
+    cmd=$*
+    # we need an id to recognise this construct
+    with_id=$(echo $cmd | md5sum | awk '{print $1}')
+    # let's load the stack of ids we have
+    set -- $with_ids_stack
+
+    # if this is a new id...
+    if [ "$1" != "$with_id" ]
+    then
+        # this is a new 'with' construct
+        # perform the command requested
+        failsafe $cmd
+        # update the stack
+        with_ids_stack="$with_id $with_ids_stack"
+        return 0    # continue the while loop
+    else
+        # second (and last) time through this 'with' construct
+        # pop this id from the stack
+        shift; with_ids_stack=$*
+        # revert the command
+        undo $cmd
+        return 1    # stop the while loop
+    fi
+}
+
 
 # functions related to verbosity reduction
 # ----------------------------------------
