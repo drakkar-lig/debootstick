@@ -85,6 +85,18 @@ apply_overheads_percent()
     echo $size
 }
 
+# check that the given directory looks like an OS
+# file structure, with shell and package manager
+check_fs_hierarchy()
+{
+    fs_tree="$1"
+    result=1
+    chroot "$fs_tree" which sh >/dev/null 2>&1 && \
+    chroot "$fs_tree" which apt-get >/dev/null 2>&1 && \
+            result=0    || true
+    return $result
+}
+
 # failsafe mode handling
 # ----------------------
 # we want to leave the system in a clean state, 

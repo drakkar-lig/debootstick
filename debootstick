@@ -59,17 +59,21 @@ then
     exit
 fi
 
+# 2nd arg is a writable file path
+if [ ! -w $(dirname "$2") ] 
+then
+    usage_and_exit
+fi
+
 # 1st arg is a directory
 if [ ! -d "$1" ]
 then
     usage_and_exit
 fi
 
-# 2nd one is a writable file path
-if [ ! -w $(dirname "$2") ] 
-then
-    usage_and_exit
-fi
+# this directory should contain a system 
+# file hierarchy
+check_fs_hierarchy "$1" || usage_and_exit
 
 # if we are here, command line is ok :)
 if [ "$root_password_request" == "ASK" ]
