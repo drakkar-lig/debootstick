@@ -19,14 +19,6 @@ root_password_request=$2
 mount_virtual_filesystems
 export DEBIAN_FRONTEND=noninteractive LANG=C
 
-cat > etc/apt/apt.conf.d/minimal << EOF
-DPkg::Post-Invoke { "rm -f /var/cache/apt/archives/*.deb /var/cache/apt/archives/partial/*.deb /var/cache/apt/*.bin || true"; };
-APT::Update::Post-Invoke { "rm -f /var/cache/apt/archives/*.deb /var/cache/apt/archives/partial/*.deb /var/cache/apt/*.bin || true"; };
-Dir::Cache::pkgcache ""; Dir::Cache::srcpkgcache "";
-Acquire::GzipIndexes "true"; Acquire::CompressionTypes::Order:: "gz";
-Acquire::Languages "none";
-EOF
-
 # let grub find our virtual device
 # we will install the bootloader on the final device anyway,
 # this is only useful to avoid warnings
