@@ -190,6 +190,8 @@ undo_mount_with_prefix()
     # forced. Thus the 2 requests in row:
     sync; sync
     $1 umount "$last"
+    # try to return to previous dir if possible
+    cd - >/dev/null 2>&1
 }
 
 undo_mount()

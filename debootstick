@@ -155,8 +155,14 @@ echo done
 mkdir -p opt/debootstick
 cp -rp $DBSTCK_DIR/scripts/live opt/debootstick/live
 cp -p $DBSTCK_DIR/scripts/create-image/chrooted-customization.sh .
-chroot . ./chrooted-customization.sh $CHROOTED_DEBUG \
+# we will need internet connectivity for package 
+# management in the chroot. Ensure we have a valid DNS setup there.
+[ -f etc/resolv.conf ] || touch etc/resolv.conf
+with mount -o bind /etc/resolv.conf $PWD/etc/resolv.conf; do
+    # let's start the customization
+    chroot . ./chrooted-customization.sh $CHROOTED_DEBUG \
                 $draft_device $root_password_request
+done
 rm ./chrooted-customization.sh
 cd ..
 
