@@ -5,6 +5,8 @@ loop_device=$1
 eval "$chrooted_functions"
 start_failsafe_mode
 
+# in the chroot commands should use /tmp for temporary files
+export TMPDIR=/tmp
 # classical mounts
 mount_virtual_filesystems
 

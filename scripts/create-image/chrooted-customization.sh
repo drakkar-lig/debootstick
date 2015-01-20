@@ -2,6 +2,8 @@
 PACKAGES="linux-image-generic lvm2 busybox-static gdisk grub-pc"
 eval "$chrooted_functions"
 start_failsafe_mode
+# in the chroot commands should use /tmp for temporary files
+export TMPDIR=/tmp
 
 if [ "$1" = "--debug" ]
 then
