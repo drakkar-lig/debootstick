@@ -28,7 +28,7 @@ export busybox_path="/tmp/busybox"
 # 
 # One more subtlety: we must ensure that we only use busybox applets
 # during this whole step. That's why we prefix commands with 
-# /tmp/busybox below. Without this, after the loop iteration where
+# $busybox_path below. Without this, after the loop iteration where
 # /bin is bind-mounted, calling 'mount' would actually call 
 # '/bin/mount', but since '/lib' or '/usr' or not bind-mounted yet,
 # the dynamic libraries needed by '/bin/mount' would fail to load.

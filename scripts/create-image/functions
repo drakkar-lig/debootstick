@@ -1,5 +1,13 @@
 #!/bin/bash
 
+# The functions in this file are grouped in the following sections:
+# - basic routines
+# - failsafe mode handling
+# - verbosity reduction
+# - partitioning and formatting
+# - system compression
+# - UEFI support
+
 # basic routines
 # --------------
 usage_and_exit()
@@ -31,11 +39,50 @@ mount_virtual_filesystems()
     failsafe mount -t sysfs none /sys
 }
 
+# divide %1/%2 rounding up
 ceil()
 {
     divide=$1
     by=$2
     echo $(((divide+by-1)/by))
+}
+
+estimated_size_xb()
+{
+    du -s$1 "$2" | awk '{print $1}'
+}
+
+estimated_size_kb()
+{
+    estimated_size_xb k $1
+}
+
+estimated_size_mb()
+{
+    estimated_size_xb m $1
+}
+
+# get total size needed taking into account 
+# an overhead.
+# $1: the initial size (not taking the overhead into account)
+# $2: percent of overhead
+# return value: the size needed (such that applying the 
+#               overhead would get $1 again)
+apply_overhead_percent()
+{
+    echo $((($1)*100/(100-($2))))
+}
+
+# apply several overheads
+apply_overheads_percent()
+{
+    size=$1; shift
+    while [ ! -z "$1" ]
+    do
+        size=$(apply_overhead_percent $size "$1")
+        shift
+    done
+    echo $size
 }
 
 # failsafe mode handling
@@ -217,7 +264,8 @@ undo()
     eval "undo_$*"
 }
 
-# the function f_with() allows constructs like
+# the function f_with() allows constructs such as:
+#
 # with mount [...]; do
 #   [...]
 # done
@@ -261,8 +309,8 @@ f_with()
 }
 
 
-# functions related to verbosity reduction
-# ----------------------------------------
+# verbosity reduction
+# -------------------
 io_unbuffered_mksquashfs()
 {
     echo 1 > $mksquashfs_result_file	# default value
@@ -337,8 +385,8 @@ quiet()
     $* >/dev/null
 }
 
-# functions related to partitioning and formatting
-# ------------------------------------------------
+# partitioning and formatting
+# ---------------------------
 make_root_fs()
 {
     # IMPORTANT NOTE.
@@ -452,3 +500,90 @@ EOF
     undo losetup $image_device "$image_file"
 }
 
+# system compression
+# ------------------
+make_compressed_fs()
+{   
+    # these operations (up to the squashfs compression below)
+    # should be fast: we are just removing or moving files 
+    # in the same filesystem
+
+    fs_tree=$(cd $1; pwd)
+    
+    # we will work with two subdirectories, 
+    # '.fs.orig' & 'compressed'
+    cd $fs_tree
+    contents=$(ls -A)
+    mkdir .fs.orig .fs.compressed
+    mv $contents .fs.orig/
+    
+    cd .fs.orig
+
+    # clean up
+    rm -rf proc/* sys/* dev/* tmp/* run/* /var/cache/*
+
+    # some files should be available early at boot 
+    # (thus not compressed in the squashfs image)
+    while read f
+    do
+        mkdir -p $(dirname $fs_tree/.fs.compressed/$f)
+        mv $f $fs_tree/.fs.compressed/$f
+    done << EOF
+boot
+bin/busybox
+opt/debootstick/live/init/first-init.sh
+$(find lib -name squashfs.ko)
+EOF
+
+    # move the init
+    mv sbin/init sbin/init.orig
+    
+    # create compressed image
+    quiet_mksquashfs "draft image - compressing (squashfs)" \
+            $PWD $fs_tree/.fs.compressed/fs.squashfs $MKSQUASHFS_OPTS
+
+    # the following operations should also be fast.
+
+    # finalize compressed tree
+    cd $fs_tree/.fs.compressed
+    mkdir -p sbin proc sys tmp/os tmp/os_rw tmp/os_ro dev
+    cd sbin
+    ln -s ../opt/debootstick/live/init/first-init.sh init
+    cd ../bin
+    ln -s busybox sh
+
+    # keep only the compressed version in fs_tree
+    cd $fs_tree/.fs.compressed
+    mv $(ls -A) ..
+    cd ..
+    rm -rf .fs.orig .fs.compressed
+}
+
+# UEFI support
+# ------------
+
+# we generate a standalone UEFI binary, used
+# for booting on UEFI systems.
+# actually, since we cannot install both grub-pc
+# and grub-efi on the embedded system (conflict),
+# we install grub-pc only. However, this binary 
+# image just look for the configuration file generated
+# by the grub-pc installation and loads it. Thus
+# this UEFI configuration also stays up-to-date. 
+build_uefi_binary_image()
+{
+    out_binary_path="$(abspath "$1")"
+    mkdir -p $DBSTCK_TMPDIR/efi/boot/grub
+    cd $DBSTCK_TMPDIR/efi
+    cat > boot/grub/grub.cfg << EOF
+insmod part_gpt
+insmod lvm
+search --set rootfs --label ROOT
+configfile (\$rootfs)/boot/grub/grub.cfg
+EOF
+    grub-mkstandalone \
+            --directory="/usr/lib/grub/x86_64-efi/" --format="x86_64-efi"   \
+            --compress="gz" --output="$out_binary_path"            \
+            "boot/grub/grub.cfg"
+    cd - >/dev/null # return to previous dir
+}
