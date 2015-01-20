@@ -191,7 +191,7 @@ undo_mount_with_prefix()
     sync; sync
     $1 umount "$last"
     # try to return to previous dir if possible
-    cd - >/dev/null 2>&1
+    cd - >/dev/null 2>&1 || true
 }
 
 undo_mount()
