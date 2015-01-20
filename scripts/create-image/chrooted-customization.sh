@@ -15,6 +15,12 @@ fi
 
 loop_device=$1
 root_password_request=$2
+shift 2
+while [ ! -z "$1" ]
+do
+    eval "$1"
+    shift
+done
 
 mount_virtual_filesystems
 export DEBIAN_FRONTEND=noninteractive LANG=C
@@ -48,19 +54,24 @@ then
     echo done
 fi
 
+# keep it small
 apt-get -qq clean
 rm -rf /var/lib/apt/lists/*
 
-# for text console in kvm
-if [ "$debug" = "1" ]
-then   
-    # display the grub interface
+if [ "$config_grub_on_serial_line" -gt 0 ]
+then
+    # display the grub interface on serial line
     cat > ./etc/default/grub << EOF
 GRUB_TIMEOUT=4
 GRUB_DISTRIBUTOR="debootstick Linux"
 GRUB_TERMINAL=serial
 GRUB_SERIAL_COMMAND="serial --speed=115200 --unit=0 --word=8 --parity=no --stop=1"
 EOF
+fi
+
+# for text console in kvm
+if [ "$debug" = "1" ]
+then
     # start a shell when the system is ready
     cat > ./etc/init/ttyS0.conf << EOF
 start on stopped rc or RUNLEVEL=[12345]

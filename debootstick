@@ -22,6 +22,7 @@ export chrooted_functions="$(
 
 # check options
 root_password_request="NO_REQUEST"
+config_grub_on_serial_line=0
 while [ $# != 0 ] 
 do
     case "$1" in
@@ -38,6 +39,10 @@ do
         ;;
         --config-root-password-none)
             root_password_request="NO_PASSWORD"
+            shift
+        ;;
+        --config-grub-on-serial-line)
+            config_grub_on_serial_line=1
             shift
         ;;
         *)
@@ -160,8 +165,9 @@ cp -p $DBSTCK_DIR/scripts/create-image/chrooted-customization.sh .
 [ -f etc/resolv.conf ] || touch etc/resolv.conf
 with mount -o bind /etc/resolv.conf $PWD/etc/resolv.conf; do
     # let's start the customization
-    chroot . ./chrooted-customization.sh $CHROOTED_DEBUG \
-                $draft_device $root_password_request
+    chroot . ./chrooted-customization.sh $CHROOTED_DEBUG    \
+                $draft_device $root_password_request        \
+                config_grub_on_serial_line=$config_grub_on_serial_line
 done
 rm ./chrooted-customization.sh
 cd ..
