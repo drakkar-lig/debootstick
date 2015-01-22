@@ -4,7 +4,10 @@
 mount -o remount,rw /
 
 # mount compressed image
-insmod $(find . -name squashfs.ko)
+for module in $(find . -name *.ko)
+do
+    insmod $module
+done
 mount /fs.squashfs /tmp/os_ro
 mount -t tmpfs tmpfs /tmp/os_rw # reduce writes
 cd /tmp/os_ro

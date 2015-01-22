@@ -555,7 +555,7 @@ make_compressed_fs()
 boot
 bin/busybox
 opt/debootstick/live/init/first-init.sh
-$(find lib -name squashfs.ko)
+$(find lib -name squashfs.ko -o -name loop.ko)
 EOF
 
     # move the init
