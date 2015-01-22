@@ -11,9 +11,16 @@ done
 mount /fs.squashfs /tmp/os_ro
 mount -t tmpfs tmpfs /tmp/os_rw # reduce writes
 cd /tmp/os_ro
-chroot . modprobe overlayfs
-mount -t overlayfs -o lowerdir=/tmp/os_ro,upperdir=/tmp/os_rw \
-        none /tmp/os
+chroot . modprobe overlayfs 2>/dev/null
+if [ $? -eq 0 ]
+then    # ok with overlayfs
+    mount -t overlayfs -o lowerdir=/tmp/os_ro,upperdir=/tmp/os_rw \
+            none /tmp/os
+else    # overlayfs ko, let's use aufs
+    chroot . modprobe aufs
+    mount -t aufs -o br=/tmp/os_rw=rw:/tmp/os_ro=ro \
+            none /tmp/os
+fi
 
 # bind classic mounts
 for mp in /proc /sys /dev /dev/pts
