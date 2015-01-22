@@ -101,8 +101,9 @@ then
 fi
 
 ORIG_TREE="$(cd "$1"; pwd)"
-STICK_OS_ID=$(uuidgen)
-LVM_VG="DBSTCK-$STICK_OS_ID"
+STICK_OS_ID=$(uuidgen | tr -d '-')
+FINAL_LVM_VG="DBSTCK-$STICK_OS_ID"
+DRAFT_LVM_VG="DRAFT-$STICK_OS_ID"
 DBSTCK_TMPDIR=$(mktemp -du --tmpdir tmp.dbstck.XXXXX.d)
 final_image_path="$2"
 final_image_abspath="$(abspath "$2")"
@@ -149,7 +150,7 @@ create_formatted_image \
         draft \
         $draft_image_size \
         $efi_partition_size_kb \
-        ${LVM_VG}_DRAFT
+        $DRAFT_LVM_VG
 echo done
 
 # step3: copy original tree to work image and modify it
@@ -207,7 +208,7 @@ create_formatted_image \
         final \
         $final_stick_size_kb \
         $efi_partition_size_kb \
-        ${LVM_VG} \
+        ${FINAL_LVM_VG} \
         $final_image_abspath
 echo done
 echo -n "I: final image - copying content from draft image... "
@@ -217,7 +218,7 @@ release_image draft     # not needed anymore
 
 # add the dbstck.conf file
 cat > $final_lvroot_mountpoint/dbstck.conf << EOF
-LVM_VG=$LVM_VG
+LVM_VG=$FINAL_LVM_VG
 DEVICE_MIN_SIZE_KB=$min_stick_size_decomp_kb
 EOF
 
