@@ -74,6 +74,22 @@ estimated_size_mb()
     estimated_size_xb m $1
 }
 
+update_fstab()
+{
+    final_root_device="/dev/$1/ROOT"
+
+    # remove the line with "UNCONFIGURED"
+    # and add or update the line mounting /
+    filtered_content=$(cat /etc/fstab |             \
+                        grep -vw "UNCONFIGURED" |   \
+                        grep -vw "/" || true
+    )
+    cat > /etc/fstab << EOF
+$final_root_device / ext4 errors=remount-ro 0 1
+$filtered_content
+EOF
+}
+
 # get total size needed taking into account
 # an overhead.
 # $1: the initial size (not taking the overhead into account)

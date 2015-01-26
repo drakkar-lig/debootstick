@@ -55,6 +55,7 @@ do  # consider sub-dirs, and skip /tmp
     fi
 done
 
+echo -n "I: final image - setting up the bootloader... "
 # let grub find our virtual device
 cd /boot/grub
 cat > device.map << END_MAP
@@ -66,6 +67,7 @@ quiet_grub_install $loop_device
 
 # remove previous file
 rm /boot/grub/device.map
+echo done
 
 # umount things
 undo_all

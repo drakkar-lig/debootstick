@@ -82,6 +82,10 @@ GRUB_SERIAL_COMMAND="serial --speed=115200 --unit=0 --word=8 --parity=no --stop=
 EOF
 fi
 
+cat >> /etc/default/grub << EOF
+GRUB_CMDLINE_LINUX_DEFAULT="console=ttyS0"
+EOF
+
 # for text console in kvm
 if [ "$debug" = "1" ]
 then
@@ -126,6 +130,10 @@ rm etc/grub.d/10_linux
 quiet_grub_install $loop_device
 
 rm boot/grub/device.map
+echo done
+
+echo -n "I: draft image - updating fstab... "
+update_fstab $final_lvm_vg
 echo done
 
 # umount all

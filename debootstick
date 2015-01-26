@@ -160,17 +160,18 @@ cp -rp $ORIG_TREE/* .
 echo done
 mkdir -p opt/debootstick
 cp -rp $DBSTCK_DIR/scripts/live opt/debootstick/live
-cp -p $DBSTCK_DIR/scripts/create-image/chrooted-customization.sh .
+cp -p $DBSTCK_DIR/scripts/create-image/chrooted-customization-draft.sh .
 # we will need internet connectivity for package 
 # management in the chroot. Ensure we have a valid DNS setup there.
 [ -f etc/resolv.conf ] || touch etc/resolv.conf
 with mount -o bind /etc/resolv.conf $PWD/etc/resolv.conf; do
     # let's start the customization
-    chroot . ./chrooted-customization.sh $CHROOTED_DEBUG    \
+    chroot . ./chrooted-customization-draft.sh $CHROOTED_DEBUG    \
                 $draft_device $root_password_request        \
+                final_lvm_vg=$FINAL_LVM_VG   \
                 config_grub_on_serial_line=$config_grub_on_serial_line
 done
-rm ./chrooted-customization.sh
+rm ./chrooted-customization-draft.sh
 cd ..
 
 # step4: compress the filesystem tree 
@@ -224,21 +225,19 @@ EOF
 
 # step7: install BIOS bootloader
 
-echo -n "I: final image - setting up the bootloader... "
 cd $final_lvroot_mountpoint
 # since the size of the filesystem mounted there is minimized,
 # creating new files may cause problems.
 # so we will use the directory /tmp that we mount in memory.
 with mount -t tmpfs none $final_lvroot_mountpoint/tmp; do
-    # /bin will be bind-mounted (see chrooted-grub-install.sh), 
+    # /bin will be bind-mounted (see chrooted-customization-final.sh), 
     # making /bin/busybox unaccessible.
     # So we will use a copy in /tmp instead.
     cp -p bin/busybox tmp
-    cp -p $DBSTCK_DIR/scripts/create-image/chrooted-grub-install.sh tmp
-    chroot . tmp/busybox sh tmp/chrooted-grub-install.sh $final_device
+    cp -p $DBSTCK_DIR/scripts/create-image/chrooted-customization-final.sh tmp
+    chroot . tmp/busybox sh tmp/chrooted-customization-final.sh $final_device
 done
 cd ..
-echo done
 
 # step8: setup the EFI boot partition
 echo -n "I: final image - setting up the EFI boot partition... "
