@@ -74,6 +74,13 @@ estimated_size_mb()
     estimated_size_xb m $1
 }
 
+device_size_kb()
+{
+    echo $((
+        $(blockdev --getsz $1) /2
+    ))
+}
+
 update_fstab()
 {
     final_root_device="/dev/$1/ROOT"

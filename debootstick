@@ -6,7 +6,7 @@ BIOSBOOT_PARTITION_SIZE_KB=1024
 IMAGE_SIZE_MARGIN_KB=0  # fs size estimation is enough pessimistic
 MKSQUASHFS_OPTS="-b 1M -comp xz"
 FAT_OVERHEAD_PERCENT=10
-FS_OVERHEAD_PERCENT=15
+FS_OVERHEAD_PERCENT=18
 LVM_OVERHEAD_PERCENT=4
 ONE_GIGABYTE_KB=$((1024*1024))
 MAX_WORK_IMAGE_OVERHEAD_KB=$ONE_GIGABYTE_KB
@@ -138,7 +138,7 @@ echo done
 # (i.e. not for the final minimized version)
 echo -n "I: draft image - computing a size large enough... "
 fs_size_estimation_kb=$(estimated_size_kb $ORIG_TREE)
-draft_image_size=$((efi_partition_size_kb + 
+draft_stick_size_kb=$((efi_partition_size_kb +
                     BIOSBOOT_PARTITION_SIZE_KB + 
                     fs_size_estimation_kb +
                     MAX_WORK_IMAGE_OVERHEAD_KB))
@@ -148,7 +148,7 @@ echo done
 echo -n "I: draft image - partitioning and formatting... "
 create_formatted_image \
         draft \
-        $draft_image_size \
+        $draft_stick_size_kb \
         $efi_partition_size_kb \
         $DRAFT_LVM_VG
 echo done
@@ -190,12 +190,20 @@ squashfs_content_kb=$(apply_overheads_percent $squashfs_content_kb_no_overhead \
 echo -n "I: final image - computing minimal image size... "
 cd $DBSTCK_TMPDIR
 data_size_kb=$(estimated_size_kb $draft_lvroot_mountpoint)
-min_rootpart_size_kb=$(apply_overheads_percent $data_size_kb \
+final_lvmpart_size_kb=$(apply_overheads_percent $data_size_kb \
         $FS_OVERHEAD_PERCENT $LVM_OVERHEAD_PERCENT)
-final_stick_size_kb=$(( efi_partition_size_kb + 
-                        BIOSBOOT_PARTITION_SIZE_KB +
-                        min_rootpart_size_kb +
-                        IMAGE_SIZE_MARGIN_KB))
+draft_lvmpart_size_kb=$(device_size_kb $draft_lvmpart_device)
+# since the draft and final images are formatted the
+# same way (only the size of the lvm part differs),
+# (final_stick_size_kb - final_lvmpart_size_kb)
+# should be equal to
+# (draft_stick_size_kb - draft_lvmpart_size_kb)
+# let's compute final_stick_size_kb accordingly:
+final_stick_size_kb=$((
+        final_lvmpart_size_kb +
+        draft_stick_size_kb -
+        draft_lvmpart_size_kb
+))
 # also compute min stick size needed for decompression step
 min_stick_size_decomp_kb=$((final_stick_size_kb + squashfs_content_kb))
 min_stick_size_decomp_gb=$(ceil $min_stick_size_decomp_kb $ONE_GIGABYTE_KB)
