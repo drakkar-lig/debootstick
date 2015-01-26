@@ -74,11 +74,11 @@ estimated_size_mb()
     estimated_size_xb m $1
 }
 
-# get total size needed taking into account 
+# get total size needed taking into account
 # an overhead.
 # $1: the initial size (not taking the overhead into account)
 # $2: percent of overhead
-# return value: the size needed (such that applying the 
+# return value: the size needed (such that applying the
 #               overhead would get $1 again)
 apply_overhead_percent()
 {
@@ -111,19 +111,19 @@ check_fs_hierarchy()
 
 # failsafe mode handling
 # ----------------------
-# we want to leave the system in a clean state, 
-# whatever happens. 
-# for example, if a "disk full" error happens 
-# in the middle of the chrooted-customization 
+# we want to leave the system in a clean state,
+# whatever happens.
+# for example, if a "disk full" error happens
+# in the middle of the chrooted-customization
 # step, we should be able to umount what have
 # been mounted in the chroot, exit the chroot,
-# umount things and remove peripherals created 
-# by debootstick outside the chroot, before 
+# umount things and remove peripherals created
+# by debootstick outside the chroot, before
 # exiting.
 # we handle this by trapping the EXIT
 # of the scripts. Also, each command creating
-# a persistent artefact (mounts, devices, etc.) 
-# is recorded, in order to be able to 'undo the 
+# a persistent artefact (mounts, devices, etc.)
+# is recorded, in order to be able to 'undo the
 # command' (i.e. remove the artefacts) if needed.
 
 undo_all()
@@ -146,7 +146,7 @@ on_exit()
     then
         toplevel=1
         shift
-    fi 
+    fi
     cleanup_function=$1
 
     # undo operations (remove artefacts)
@@ -161,7 +161,7 @@ on_exit()
         undo_all
     fi
 
-    # call an additional cleanup function 
+    # call an additional cleanup function
     # if provided.
     if [ ! -z "$cleanup_function" ]
     then
@@ -192,13 +192,13 @@ undo_mount_with_prefix()
 {
     # I know 2 usual things that could cause umount
     # to fail with an error reporting that 'device is busy'.
-    # Either one process has its current directory on this 
+    # Either one process has its current directory on this
     # mount, or there is cached data that was not yet
     # written to disk. We handle these below.
     for last; do true; done # retrieve last arg
     cd / # just in case we would be on the mountpoint
     # some say that a sync request is treated asynchronously.
-    # but if a second one comes in, then the first one is 
+    # but if a second one comes in, then the first one is
     # forced. Thus the 2 requests in row:
     sync; sync
     $1 umount "$last"
@@ -223,19 +223,19 @@ undo_mkdir()
 }
 
 undo_losetup()
-{   # we assume the failsafe command was 
+{   # we assume the failsafe command was
     # $ failsafe losetup <loop_device> <file>
     losetup -d "$1"
 }
 
 undo_kpartx()
-{   # we assume the failsafe command was 
+{   # we assume the failsafe command was
     # $ failsafe kpartx -a <disk_device>
     disk_device="$2"
 
     # we have to detach lvm devices associated
     # to the <disk_device>, then keep the related
-    # partition in a busy state otherwise. 
+    # partition in a busy state otherwise.
     # Retrieving these devices is not so easy...
     partitions=$(kpartx -l $disk_device | \
                     awk '{ print "/dev/mapper/"$1 }')
@@ -245,7 +245,7 @@ undo_kpartx()
         lv_devices=$(lvs -o vg_name,lv_name --noheadings $vg_names | \
                         awk '{print "/dev/" $1 "/" $2}')
         for lv_device in $lv_devices
-        do 
+        do
             dmsetup remove $lv_device
         done
     fi
@@ -263,7 +263,7 @@ undo_chroot()
 failsafe()
 {
     $*  &&  \
-    failsafe_commands="$( 
+    failsafe_commands="$(
         echo "$*"
         echo -n "$failsafe_commands"
     )"
@@ -273,7 +273,7 @@ undo()
 {
     # undo-ing one failsafe operation only
 
-    # we have to remove this operation from 
+    # we have to remove this operation from
     # variable 'failsafe_commands'.
     # first, we escape it in order to use
     # it in a sed statement below.
@@ -285,7 +285,7 @@ undo()
         echo -n "$failsafe_commands" | \
             sed -e "/^$escaped_cmd\$/d"
     )"
-    
+
     # of course we really undo it
     eval "undo_$*"
 }
@@ -359,7 +359,7 @@ quiet_mksquashfs()
 {
     task_name=$1
     shift
-    
+
     mksquashfs_result_file=$(mktemp)
 
     io_unbuffered_mksquashfs $* | io_unbuffered_tr '\n[' '&\n'              \
@@ -369,7 +369,7 @@ quiet_mksquashfs()
                                         echo -en "I: $task_name... $((100*$ratio))%\r"
                                   done
     mksquashfs_return_value=$(cat $mksquashfs_result_file)
-    rm $mksquashfs_result_file    
+    rm $mksquashfs_result_file
 
     if [ "$mksquashfs_return_value" = "0" ]
     then
@@ -397,7 +397,7 @@ quiet_grub_install()
                 grep -v "Generating"        | \
                 grep -v "Found .* image:"   | \
                 grep -vx "done" 1>&2        || true
-    
+
     # grep returns non-zero if no line is found.
     # in our case, having no error line is a good
     # thing, thus the or-true construct.
@@ -453,7 +453,7 @@ create_formatted_image()
         mkdir -p $DBSTCK_TMPDIR/$image_name
         image_file=$DBSTCK_TMPDIR/$image_name/file
     fi
-    
+
     # create image file
     rm -f "$image_file"
     $DD bs=1024 seek=$stick_size_kb count=0 of="$image_file"
@@ -529,26 +529,26 @@ EOF
 # system compression
 # ------------------
 make_compressed_fs()
-{   
+{
     # these operations (up to the squashfs compression below)
-    # should be fast: we are just removing or moving files 
+    # should be fast: we are just removing or moving files
     # in the same filesystem
 
     fs_tree=$(cd $1; pwd)
-    
-    # we will work with two subdirectories, 
+
+    # we will work with two subdirectories,
     # '.fs.orig' & 'compressed'
     cd $fs_tree
     contents=$(ls -A)
     mkdir .fs.orig .fs.compressed
     mv $contents .fs.orig/
-    
+
     cd .fs.orig
 
     # clean up
     rm -rf proc/* sys/* dev/* tmp/* run/* /var/cache/*
 
-    # some files should be available early at boot 
+    # some files should be available early at boot
     # (thus not compressed in the squashfs image)
     while read f
     do
@@ -563,7 +563,7 @@ EOF
 
     # move the init
     mv sbin/init sbin/init.orig
-    
+
     # create compressed image
     quiet_mksquashfs "draft image - compressing (squashfs)" \
             $PWD $fs_tree/.fs.compressed/fs.squashfs $MKSQUASHFS_OPTS
@@ -592,10 +592,10 @@ EOF
 # for booting on UEFI systems.
 # actually, since we cannot install both grub-pc
 # and grub-efi on the embedded system (conflict),
-# we install grub-pc only. However, this binary 
+# we install grub-pc only. However, this binary
 # image just look for the configuration file generated
 # by the grub-pc installation and loads it. Thus
-# this UEFI configuration also stays up-to-date. 
+# this UEFI configuration also stays up-to-date.
 build_uefi_binary_image()
 {
     out_binary_path="$(abspath "$1")"
