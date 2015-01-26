@@ -7,10 +7,14 @@ start_failsafe_mode
 
 # in the chroot commands should use /tmp for temporary files
 export TMPDIR=/tmp
-# classical mounts
-mount_virtual_filesystems
 
+# busybox is there
 export busybox_path="/tmp/busybox"
+
+# classical mounts
+failsafe busybox_mount -t proc none /proc
+failsafe_mount_sys_and_dev
+
 
 # The current filesystem root is a very limited system, mostly
 # reduced to /bin/busybox and a compressed filesystem image 

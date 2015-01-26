@@ -22,7 +22,8 @@ do
     shift
 done
 
-mount_virtual_filesystems
+failsafe mount -t proc none /proc
+failsafe_mount_sys_and_dev
 export DEBIAN_FRONTEND=noninteractive LANG=C
 
 # let grub find our virtual device

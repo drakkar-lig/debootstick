@@ -31,18 +31,20 @@ busybox_mount()
     $busybox_path mount $*
 }
 
-# note: when running
-# 'umount <dir>', umount tries to
-# find which mount this is about,
-# reading /etc/mtab if available,
-# or /proc/mounts.
-# here, we mount /proc first, such that
-# it will be umounted last, in order
-# to provide the /proc/mounts file as long
-# as possible for the other umounts.
-mount_virtual_filesystems()
+# note: when running 'umount <dir>', umount tries to
+# find which mount this is about, reading /etc/mtab
+# if available, or /proc/mounts.
+# Also, some versions of busybox require /proc/self/exe
+# to be available otherwise its internal applets,
+# including 'mount', will not be found (unless you
+# specify "busybox mount" instead of just "mount").
+# As a result, /proc should be mounted first (and
+# unmounted last, but this is a side effect of
+# the failsafe mode handling anyway).
+# The caller should mount /proc as needed, and then
+# call the function below.
+failsafe_mount_sys_and_dev()
 {
-    failsafe mount -t proc none /proc
     failsafe mount -t devtmpfs none /dev
     failsafe mount -t devpts none /dev/pts
     failsafe mount -t sysfs none /sys
