@@ -7,6 +7,7 @@
 # - partitioning and formatting
 # - system compression
 # - UEFI support
+# - package management
 
 # basic routines
 # --------------
@@ -611,4 +612,22 @@ EOF
             --compress="gz" --output="$out_binary_path"            \
             "boot/grub/grub.cfg"
     cd - >/dev/null # return to previous dir
+}
+
+# Package management
+# ------------------
+package_is_installed()
+{
+    dpkg-query -W --showformat='${Status}\n' \
+                    $1 2>/dev/null | grep -c "^i" || true
+}
+
+list_available_packages()
+{
+    apt-cache search "$1" | awk '{print $1}'
+}
+
+install_packages()
+{
+    apt-get -qq --no-install-recommends install $* >/dev/null 2>&1
 }

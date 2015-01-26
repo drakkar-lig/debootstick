@@ -1,5 +1,10 @@
 #!/bin/bash
-PACKAGES="linux-image-generic lvm2 busybox-static gdisk grub-pc"
+# note:
+# - linux-image-generic is for ubuntu
+# - linux-image-amd64 is for debian
+# our process below will check which one exists.
+KERNEL_ALTERNATIVE_PACKAGES="linux-image-generic linux-image-amd64"
+OTHER_PACKAGES="lvm2 busybox-static gdisk grub-pc"
 eval "$chrooted_functions"
 start_failsafe_mode
 # in the chroot commands should use /tmp for temporary files
@@ -38,20 +43,27 @@ END_MAP
 echo -n "I: draft image - updating package manager database... "
 apt-get update -qq
 echo done
-to_be_installed=""
-for package in $PACKAGES
-do
-    installed=$(dpkg-query -W --showformat='${Status}\n' \
-                    $package 2>/dev/null | grep -c "^i" || true)
-if [ $installed -eq 0 ]
+
+kernel_package=$(list_available_packages "^linux-image-((generic)|(amd64))$")
+if [ -z "$kernel_package" ]
 then
-    to_be_installed="$to_be_installed $package"
+    echo "E: no linux kernel package found."
+    echo "E: unsupported target OS variant."
+    exit 1
 fi
+
+to_be_installed=""
+for package in $kernel_package $OTHER_PACKAGES
+do
+    if [ $(package_is_installed $package) -eq 0 ]
+    then
+        to_be_installed="$to_be_installed $package"
+    fi
 done
 if [ "$to_be_installed" != "" ]
 then
     echo -n "I: draft image - installing packages:${to_be_installed}... "
-    apt-get -qq --no-install-recommends install $to_be_installed >/dev/null 2>&1
+    install_packages $to_be_installed
     echo done
 fi
 
