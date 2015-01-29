@@ -18,6 +18,11 @@ drop_to_shell_and_halt()
     halt -fp
 }
 
+partx_update_exists()
+{
+    partx -h | grep "\-\-update" >/dev/null || return 1
+}
+
 show_progress_bar()
 {
     achieved=$1
