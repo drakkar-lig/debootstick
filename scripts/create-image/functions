@@ -652,5 +652,5 @@ list_available_packages()
 
 install_packages()
 {
-    apt-get -qq --no-install-recommends install $* >/dev/null 2>&1
+    apt-get -qq --no-install-recommends install $* >/dev/null
 }
