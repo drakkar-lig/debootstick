@@ -4,7 +4,7 @@
 # - linux-image-amd64 is for debian
 # our process below will check which one exists.
 KERNEL_ALTERNATIVE_PACKAGES="linux-image-generic linux-image-amd64"
-OTHER_PACKAGES="lvm2 busybox-static gdisk grub-pc"
+OTHER_PACKAGES="lvm2 gdisk grub-pc"
 eval "$chrooted_functions"
 start_failsafe_mode
 # in the chroot commands should use /tmp for temporary files

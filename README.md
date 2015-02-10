@@ -26,9 +26,8 @@ Embedded OS features
 --------------------
 The embedded system is:
 
-- ready to be used (no installation step, only an automatic decompression at 1st boot)
+- ready to be used (no installation step)
 - viable in the long-term, fully upgradable (including the kernel and the bootloader)
-- compact
 - compatible with BIOS and UEFI systems
 
 Installing debootstick

@@ -174,17 +174,8 @@ done
 rm ./chrooted-customization-draft.sh
 cd ..
 
-# step4: compress the filesystem tree 
-# and estimate size of squashfs contents
-make_compressed_fs $draft_lvroot_mountpoint
-mkdir -p $DBSTCK_TMPDIR/squashfs.mp
-with mount -t squashfs -o ro \
-        $draft_lvroot_mountpoint/fs.squashfs $DBSTCK_TMPDIR/squashfs.mp; do
-    squashfs_content_kb_no_overhead=$(
-                estimated_size_kb $DBSTCK_TMPDIR/squashfs.mp)
-done
-squashfs_content_kb=$(apply_overheads_percent $squashfs_content_kb_no_overhead \
-                        $FS_OVERHEAD_PERCENT $LVM_OVERHEAD_PERCENT)
+# step4: finalyse filesystem setup 
+finalize_fs $draft_lvroot_mountpoint
 
 # step5: compute minimal size of final stick
 echo -n "I: final image - computing minimal image size... "
@@ -204,9 +195,6 @@ final_stick_size_kb=$((
         draft_stick_size_kb -
         draft_lvmpart_size_kb
 ))
-# also compute min stick size needed for decompression step
-min_stick_size_decomp_kb=$((final_stick_size_kb + squashfs_content_kb))
-min_stick_size_decomp_gb=$(ceil $min_stick_size_decomp_kb $ONE_GIGABYTE_KB)
 echo done
 
 # step6: copy work version to the final image (with minimal size)
@@ -228,7 +216,6 @@ release_image draft     # not needed anymore
 # add the dbstck.conf file
 cat > $final_lvroot_mountpoint/dbstck.conf << EOF
 LVM_VG=$FINAL_LVM_VG
-DEVICE_MIN_SIZE_KB=$min_stick_size_decomp_kb
 EOF
 
 # step7: install BIOS bootloader
@@ -238,12 +225,8 @@ cd $final_lvroot_mountpoint
 # creating new files may cause problems.
 # so we will use the directory /tmp that we mount in memory.
 with mount -t tmpfs none $final_lvroot_mountpoint/tmp; do
-    # /bin will be bind-mounted (see chrooted-customization-final.sh), 
-    # making /bin/busybox unaccessible.
-    # So we will use a copy in /tmp instead.
-    cp -p bin/busybox tmp
     cp -p $DBSTCK_DIR/scripts/create-image/chrooted-customization-final.sh tmp
-    chroot . tmp/busybox sh tmp/chrooted-customization-final.sh $final_device
+    chroot . tmp/chrooted-customization-final.sh $final_device
 done
 cd ..
 
@@ -260,6 +243,5 @@ echo done
 
 chmod a+rw $final_image_abspath
 stick_size_mb=$(estimated_size_mb $final_image_abspath)
-echo -n "I: $final_image_path ready (size: ${stick_size_mb}Mb). "
-echo "It will work on ${min_stick_size_decomp_gb}Gb and larger devices."
+echo "I: $final_image_path ready (size: ${stick_size_mb}Mb). "
 

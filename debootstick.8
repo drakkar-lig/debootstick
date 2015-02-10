@@ -1,10 +1,10 @@
 .\" (C) Copyright 2015 Etienne Dublé <etienne.duble@imag.fr>,
 .\"
-.TH DEBOOTSTICK 8 "January  5, 2015"
+.TH DEBOOTSTICK 8 "February 10, 2015"
 .\" Please adjust this date whenever revising the manpage.
 
 .SH NAME
-debootstick \- Generate a bootable image from an Ubuntu filesystem tree
+debootstick \- Generate a bootable image from a Debian-based chroot environment
 
 .SH SYNOPSIS
 .B debootstick
@@ -14,11 +14,11 @@ debootstick \- Generate a bootable image from an Ubuntu filesystem tree
 .SH DESCRIPTION
 
 .B debootstick
-generates a bootable image (at \fIDEST\fP) from an Ubuntu filesystem tree (at \fISOURCE\fP).
+generates a bootable image (at \fIDEST\fP) from a Debian-based chroot environment (at \fISOURCE\fP).
 
 .PP
 \fISOURCE\fP must be a directory
-containing a standard Ubuntu system structure (such as one generated with
+containing a standard Debian-based chroot environment (such as one generated with
 \fBdebootstrap\fP(8)).
 The output image generated at \fIDEST\fP should then be copied
 to a USB stick or disk.
@@ -26,11 +26,9 @@ to a USB stick or disk.
 .PP
 The embedded system is:
 .br
-- ready to be used (no installation step, only an automatic decompression at 1st boot)
+- ready to be used (no installation step)
 .br
 - viable in the long-term, fully upgradable (kernel, bootloader included)
-.br
-- compact (see \fBNOTES\fP)
 .br
 - compatible with BIOS and UEFI systems
 
@@ -111,11 +109,8 @@ It is also possible to test the UEFI boot with \fBkvm\fP, if you have the
 the \fBkvm\fP command line.
 
 .PP
-Appropriate compaction is handled by using a temporary squashfs image that is
-decompressed and removed at 1st boot.
-.br
-Many Live distributions prefer to keep the read-only squashfs image and handle
-writes using an overlay based on a filesystem union.
+Many Live distributions propose a highly compressed system based on a squashfs image.
+They handle writes using an overlay based on a filesystem union.
 While this allows the system to remain compact in the first times, this also has
 disavantages:
 .br
@@ -124,10 +119,10 @@ the linux kernel and the bootloader) which quickly leads to security issues or u
 problems.
 .br
 - Storing modified files in an overlay and never releasing the room needed for
-the original versions in the squashsfs image is counter-productive in the long term.
+the original versions in the squashfs image is counter-productive in the long term.
 .br
 One of the objectives behind \fBdebootstick\fP was to provide a viable long-term
-live system, therefore a different solution had to be designed.
+live system, therefore this kind of setup has been discarded.
 
 .SH AUTHOR
 Etienne Duble (etienne.duble@imag.fr)
