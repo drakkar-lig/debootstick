@@ -29,6 +29,10 @@ do
         -h|--help)
             usage_and_exit 0
         ;;
+        --help-os-support)
+            describe_os_support
+            exit 0
+        ;;
         -v|--version)
             echo "debootstick $VERSION"
             exit 0
