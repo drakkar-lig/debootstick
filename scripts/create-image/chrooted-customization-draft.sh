@@ -82,9 +82,12 @@ GRUB_SERIAL_COMMAND="serial --speed=115200 --unit=0 --word=8 --parity=no --stop=
 EOF
 fi
 
-cat >> /etc/default/grub << EOF
-GRUB_CMDLINE_LINUX_DEFAULT="console=ttyS0"
-EOF
+source /etc/default/grub
+LINUX_OPTIONS="rootdelay=3"
+GRUB_CMDLINE_LINUX="$GRUB_CMDLINE_LINUX $LINUX_OPTIONS"
+updated_content="$(cat /etc/default/grub | \
+        sed -e "s/GRUB_CMDLINE_LINUX=.*/GRUB_CMDLINE_LINUX=\"$GRUB_CMDLINE_LINUX\"/")"
+echo "$updated_content" > /etc/default/grub
 
 # for text console in kvm
 if [ "$debug" = "1" ]
