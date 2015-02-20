@@ -12,8 +12,8 @@ Package: debootstick
 Architecture: all
 Depends: ${misc:Depends}, lvm2, kpartx, squashfs-tools, grub-efi-amd64-bin
 Recommends: debootstrap, kvm, ovmf
-Description: Generate a bootable live image from a filesystem tree
- debootstick is used to generate a bootable Ubuntu image from 
- an Ubuntu filesystem tree (such as one generated with debootstrap).
+Description: Turn a chroot environment into a bootable image
+ debootstick is used to generate a bootable image from 
+ a Debian or Ubuntu chroot environment (such as one generated with debootstrap).
  This image should then be copied to a USB stick or disk. 
 

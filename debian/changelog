@@ -1,3 +1,16 @@
+debootstick (0.9b) trusty; urgency=low
+
+  * Description / documentation update
+
+ -- Etienne Dublé <etienne.duble@imag.fr>  Fri, 20 Feb 2015 10:26:33 +0100
+
+debootstick (0.9) trusty; urgency=low
+
+  * Many usability and robustness improvements
+  * Support wheezy, jessie, precise and trusty chroot environments
+
+ -- Etienne Dublé <etienne.duble@imag.fr>  Fri, 20 Feb 2015 09:55:02 +0100
+
 debootstick (0.1b) trusty; urgency=low
 
   * Improved minimal space computations

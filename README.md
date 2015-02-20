@@ -1,6 +1,6 @@
 debootstick
 ===========
-_Build customized and featureful Ubuntu-live sticks._
+_Turn a chroot environment into a bootable image._
 
 Trivial example:
 ```
@@ -16,7 +16,7 @@ The concept
 -----------
 Generating a bootable image may be seen as a 3-steps process:
 
-1. Generate a filesystem tree
+1. Generate a chroot environment
 2. Customize it
 3. Build a bootable image
 
@@ -44,7 +44,7 @@ $ apt-get install debootstick
 Standard workflow: debootstrap, debootstick and kvm
 ---------------------------------------------------
 
-1. Generate a filesystem tree:
+1. Generate a chroot environment:
  ```
  $ debootstrap --arch=amd64 --variant=minbase trusty /tmp/trusty_tree
  ```
@@ -95,7 +95,7 @@ $ docker export mycontainer | tar xf -
 $ docker rm mycontainer   # not needed anymore
 ```
 
-We now have the filesystem tree in the current directory `mycontainer_fs`:
+We now have the filesystem tree of the container copied in the current directory `mycontainer_fs`:
 ```
 $ ls
 bin  boot  dev  etc  home  lib  lib64  media  mnt  opt  proc  root  run  sbin  srv  sys  tmp  usr  var
@@ -117,11 +117,6 @@ $ chroot . passwd -d root
 ```
 (Alternatively, we could add an option --config-root-password-[ask|none] when using __debootstick__ below.)
 
-We also need the DNS to be properly configured inside the filesystem, for __debootstick__ to run correctly. (In the future, __debootstick__ should handle this itself.)
-```
-$ cp /etc/resolv.conf ./etc/resolv.conf
-```
-
 We can now use debootstick:
 ```
 $ cd ..
@@ -137,8 +132,6 @@ $ truncate -s 2G img_from_docker.dd-test
 $ kvm -hda img_from_docker.dd-test -serial mon:stdio -nographic
 [...grub menu...]
 [...kernel messages...]
-Uncompressing...
-|****************************************| 100%
 [...]
 
 Ubuntu 14.04.1 LTS localhost ttyS0
