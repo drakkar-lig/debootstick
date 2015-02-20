@@ -4,7 +4,7 @@
   <head>
     <meta charset='utf-8'>
     <meta http-equiv="X-UA-Compatible" content="chrome=1">
-    <meta name="description" content="Debootstick : Generate a bootable live image from any Debian/Ubuntu filesystem tree.">
+    <meta name="description" content="Debootstick : Turn a chroot environment into a bootable image.">
 
     <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
 
@@ -19,7 +19,7 @@
           <a id="forkme_banner" href="https://github.com/drakkar-lig/debootstick">View on GitHub</a>
 
           <h1 id="project_title">Debootstick</h1>
-          <h2 id="project_tagline">Generate a bootable live image from any Debian/Ubuntu filesystem tree.</h2>
+          <h2 id="project_tagline">Turn a chroot environment into a bootable image.</h2>
 
             <section id="downloads">
               <a class="zip_download_link" href="https://github.com/drakkar-lig/debootstick/zipball/master">Download this project as a .zip file</a>
@@ -31,31 +31,14 @@
     <!-- MAIN CONTENT -->
     <div id="main_content_wrap" class="outer">
       <section id="main_content" class="inner">
-        <p><em>Build Ubuntu bootable images the UNIX way.</em></p>
-
-<p>Trivial example:</p>
+        <p>Trivial example:</p>
 
 <pre><code>$ debootstrap --arch=amd64 --variant=minbase trusty trusty_tree
-$ debootstick trusty_tree img.dd
+$ debootstick --config-root-password-none trusty_tree img.dd
 $ dd if=img.dd of=/dev/&lt;your_device&gt; bs=10M
 </code></pre>
 
 <p>Your USB device now embeds a live Ubuntu system and can be booted on any amd64 computer (UEFI or BIOS).</p>
-
-<p><strong>WARNING: this software is in alpha state. USE AT YOUR OWN RISK.</strong></p>
-
-<h2>
-<a id="the-concept" class="anchor" href="#the-concept" aria-hidden="true"><span class="octicon octicon-link"></span></a>The concept</h2>
-
-<p>Generating a bootable image may be seen as a 3-steps process:</p>
-
-<ol>
-<li>Generate a filesystem tree</li>
-<li>Customize it</li>
-<li>Build a bootable image</li>
-</ol>
-
-<p><strong>debootstick</strong> takes care of step 3 only. As such, it follows the <a href="http://en.wikipedia.org/wiki/Unix_philosophy#Program_Design_in_the_UNIX_Environment">UNIX philosophy</a>. This limited scope makes it good at collaborating with other tools, such as <strong>debootstrap</strong>, <strong>chroot</strong>, or even <strong>docker</strong>.</p>
 
 <h2>
 <a id="embedded-os-features" class="anchor" href="#embedded-os-features" aria-hidden="true"><span class="octicon octicon-link"></span></a>Embedded OS features</h2>
@@ -63,135 +46,26 @@ $ dd if=img.dd of=/dev/&lt;your_device&gt; bs=10M
 <p>The embedded system is:</p>
 
 <ul>
-<li>ready to be used (no installation step, only an automatic decompression at 1st boot)</li>
+<li>ready to be used (no installation step)</li>
 <li>viable in the long-term, fully upgradable (including the kernel and the bootloader)</li>
-<li>compact</li>
 <li>compatible with BIOS and UEFI systems</li>
 </ul>
 
 <h2>
-<a id="installing-debootstick" class="anchor" href="#installing-debootstick" aria-hidden="true"><span class="octicon octicon-link"></span></a>Installing debootstick</h2>
+<a id="more-information-on-the-wiki" class="anchor" href="#more-information-on-the-wiki" aria-hidden="true"><span class="octicon octicon-link"></span></a>More information on the wiki</h2>
 
-<p>A package has been generated for Ubuntu 14.04.</p>
+<p>On the wiki at <a href="https://github.com/drakkar-lig/debootstick/wiki">https://github.com/drakkar-lig/debootstick/wiki</a>, you will find: </p>
 
-<p>Type:</p>
-
-<pre><code>$ add-apt-repository ppa:debootstick/ppa
-$ apt-get update
-$ apt-get install debootstick
-</code></pre>
-
-<h2>
-<a id="standard-workflow-debootstrap-debootstick-and-kvm" class="anchor" href="#standard-workflow-debootstrap-debootstick-and-kvm" aria-hidden="true"><span class="octicon octicon-link"></span></a>Standard workflow: debootstrap, debootstick and kvm</h2>
-
-<ol>
-<li>
-<p>Generate a filesystem tree:</p>
-
-<pre><code>$ debootstrap --arch=amd64 --variant=minbase trusty /tmp/trusty_tree
-</code></pre>
+<ul>
+<li>A more complete workflow for designing and testing an image</li>
+<li>How to install <strong>debootstick</strong>
 </li>
-<li>
-<p>(Optionaly) customize it:</p>
-
-<pre><code>$ chroot /tmp/trusty_tree; [...]; exit
-</code></pre>
+<li>How to combine <strong>debootstrap</strong> or <strong>docker</strong> with <strong>debootstick</strong>
 </li>
-<li>
-<p>Generate the bootable image:</p>
-
-<pre><code>$ debootstick /tmp/trusty_tree /tmp/img.dd
-</code></pre>
+<li>How to test images with <strong>kvm</strong>
 </li>
-<li>
-<p>Test it with kvm.</p>
-
-<pre><code>$ cp /tmp/img.dd /tmp/img.dd-test    # let's work on a copy, our test is destructive
-$ truncate -s 2G /tmp/img.dd-test    # simulate a copy on a 2G-large USB stick
-$ kvm -hda /tmp/img.dd-test          # the test itself (BIOS mode)
-</code></pre>
-</li>
-<li>
-<p>Copy the boot image to a USB stick or disk.</p>
-
-<pre><code>$ dd bs=10M if=/tmp/img.dd of=/dev/your-device
-</code></pre>
-</li>
-</ol>
-
-<p>Note: it is also possible to test the UEFI boot with kvm, if you have the <strong>ovmf</strong> package installed, by adding <code>-bios /path/to/OVMF.fd</code> to the <code>kvm</code> command line.</p>
-
-<h2>
-<a id="turning-a-docker-container-into-a-bootable-image" class="anchor" href="#turning-a-docker-container-into-a-bootable-image" aria-hidden="true"><span class="octicon octicon-link"></span></a>Turning a docker container into a bootable image</h2>
-
-<p><strong>Docker</strong> is a convenient tool when setting up an operating system. But, at the end of the process, sometimes we want to run this operating system on a real machine, instead of a container. With <code>debootstick</code>, we can achieve this easily. Here are a few guidelines.</p>
-
-<p>First, we can retrieve the filesystem tree of a docker container by using the <code>docker export</code> command. However, since this command accepts a docker container and not a docker image, we will have to generate a container from the image first. Here is a way to do it:</p>
-
-<pre><code>$ docker run --name mycontainer ubuntu:14.04 true
-</code></pre>
-
-<p>We request a new container to be created from image <code>ubuntu:14.04</code>, in order to run the command <code>/bin/true</code> (it is a command that does nothing, but since we need one...).</p>
-
-<p>We can know retrieve the content of this container, and then remove it.</p>
-
-<pre><code>$ mkdir mycontainer_fs 
-$ cd mycontainer_fs/
-$ docker export mycontainer | tar xf -
-$ docker rm mycontainer   # not needed anymore
-</code></pre>
-
-<p>We now have the filesystem tree in the current directory <code>mycontainer_fs</code>:</p>
-
-<pre><code>$ ls
-bin  boot  dev  etc  home  lib  lib64  media  mnt  opt  proc  root  run  sbin  srv  sys  tmp  usr  var
-$ 
-</code></pre>
-
-<p>The OS embedded in official Ubuntu docker images is slightly customized. In particular, starting services is disallowed. We have to revert this:</p>
-
-<pre><code>$ chroot .
-$ rm /usr/sbin/policy-rc.d
-$ dpkg-divert --remove /sbin/initctl
-$ mv /sbin/initctl.distrib /sbin/initctl
-$ exit  # from chroot
-</code></pre>
-
-<p>We also need the DNS to be properly configured inside the filesystem, for <strong>debootstick</strong> to run correctly. (In the future, <strong>debootstick</strong> should handle this itself.)</p>
-
-<pre><code>$ cp /etc/resolv.conf ./etc/resolv.conf
-</code></pre>
-
-<p>We can now use debootstick:</p>
-
-<pre><code>$ cd ..
-$ debootstick mycontainer_fs img_from_docker.dd
-</code></pre>
-
-<p>And that's it. We have our image. </p>
-
-<p>Before dumping it to a USB device, we may prefer to test it:</p>
-
-<pre><code>$ cp img_from_docker.dd img_from_docker.dd-test
-$ truncate -s 2G img_from_docker.dd-test
-$ kvm -hda img_from_docker.dd-test -serial mon:stdio -nographic
-[...grub menu...]
-[...kernel messages...]
-Uncompressing...
-|****************************************| 100%
-[...]
-
-Ubuntu 14.04.1 LTS localhost ttyS0
-
-localhost login: root
-Password: 
-Welcome to Ubuntu 14.04.1 LTS ([...])
-[...]
-
-root@localhost:~# echo "We are inside the VM!"
-We are inside the VM!
-root@localhost:~# 
-</code></pre>
+<li>Design notes, FAQ</li>
+</ul>
       </section>
     </div>
 
