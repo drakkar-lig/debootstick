@@ -552,6 +552,8 @@ build_uefi_binary_image()
     cat > boot/grub/grub.cfg << EOF
 insmod part_gpt
 insmod lvm
+insmod efi_gop
+insmod efi_uga
 search --set rootfs --label ROOT
 configfile (\$rootfs)/boot/grub/grub.cfg
 EOF
