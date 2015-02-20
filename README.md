@@ -10,8 +10,6 @@ $ dd if=img.dd of=/dev/<your_device> bs=10M
 ```
 Your USB device now embeds a live Ubuntu system and can be booted on any amd64 computer (UEFI or BIOS).
 
-__WARNING: this software is in alpha state. USE AT YOUR OWN RISK.__
-
 The concept
 -----------
 Generating a bootable image may be seen as a 3-steps process:
