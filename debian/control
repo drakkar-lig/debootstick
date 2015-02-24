@@ -10,7 +10,7 @@ Vcs-Browser: https://github.com/drakkar-lig/debootstick
 
 Package: debootstick
 Architecture: all
-Depends: ${misc:Depends}, lvm2, kpartx, squashfs-tools, grub-efi-amd64-bin
+Depends: ${misc:Depends}, lvm2, kpartx, grub-efi-amd64-bin, uuid-runtime, gdisk, dosfstools
 Recommends: debootstrap, kvm, ovmf
 Description: Turn a chroot environment into a bootable image
  debootstick is used to generate a bootable image from 
