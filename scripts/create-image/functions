@@ -438,6 +438,14 @@ make_root_fs()
     mkfs.ext4 -F -q -L ROOT -T default -m 2 $1
 }
 
+wait_for_device()
+{
+	while [ ! -e "$1" ]
+	do
+		sleep 0.1
+	done
+}
+
 partition_stick()
 {
     device=$1
@@ -479,6 +487,7 @@ create_formatted_image()
     image_lvmpart_device=$3
 
     # create an lvm volume
+    wait_for_device $image_lvmpart_device
     quiet pvcreate $image_lvmpart_device
     quiet vgcreate $lvm_vg $image_lvmpart_device
     quiet lvcreate -n ROOT -l 100%FREE $lvm_vg
@@ -488,6 +497,7 @@ create_formatted_image()
     make_root_fs $image_lvroot_device
 
     # format the efi partition
+    wait_for_device $image_efipart_device
     quiet mkfs.vfat -n DBSTCK_EFI $image_efipart_device
 
     # mount efi partition and root volume
