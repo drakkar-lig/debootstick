@@ -7,6 +7,7 @@ clean:
 
 DSDIR=$(DESTDIR)/usr/share/debootstick
 install:
+	set -e
 	mkdir -p $(DSDIR)/scripts
 	mkdir -p $(DESTDIR)/usr/sbin
 
