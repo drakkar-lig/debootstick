@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # note:
 # - linux-image-generic is for ubuntu
 # - linux-image-amd64 is for debian
@@ -82,7 +82,7 @@ GRUB_SERIAL_COMMAND="serial --speed=115200 --unit=0 --word=8 --parity=no --stop=
 EOF
 fi
 
-source /etc/default/grub
+. /etc/default/grub
 LINUX_OPTIONS="rootdelay=3"
 GRUB_CMDLINE_LINUX="$GRUB_CMDLINE_LINUX $LINUX_OPTIONS"
 updated_content="$(cat /etc/default/grub | \

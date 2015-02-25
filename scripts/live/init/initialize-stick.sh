@@ -1,9 +1,9 @@
-#!/bin/bash
+#!/bin/sh
 THIS_DIR=$(cd $(dirname $0); pwd)
-source $THIS_DIR/tools.sh
+. $THIS_DIR/tools.sh
 
 # get variables such as LVM_VG
-source /dbstck.conf
+. /dbstck.conf
 
 # lvm may need this directory to run properly
 mkdir -p /run/lock

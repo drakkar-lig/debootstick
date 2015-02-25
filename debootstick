@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # constants
 VERSION='@VERSION@'     # updated at install time
@@ -15,7 +15,7 @@ DD="dd status=none"
 DBSTCK_DIR="/usr/share/debootstick"
 
 # get functions now
-source $DBSTCK_DIR/scripts/create-image/functions
+. $DBSTCK_DIR/scripts/create-image/functions
 # and have them available in chrooted scripts
 export chrooted_functions="$(
     cat $DBSTCK_DIR/scripts/create-image/functions)"
@@ -85,7 +85,7 @@ fi
 check_fs_hierarchy "$1" || usage_and_exit
 
 # if we are here, command line is ok :)
-if [ "$root_password_request" == "ASK" ]
+if [ "$root_password_request" = "ASK" ]
 then
     while true
     do

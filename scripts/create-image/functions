@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # The functions in this file are grouped in the following sections:
 # - basic routines
@@ -185,12 +185,25 @@ undo_all()
     failsafe_commands=""
 }
 
+on_sigint()
+{
+    trap - INT EXIT
+    on_exit --from-signal $*
+    kill -INT $$
+}
+
 on_exit()
 {   # save exit code
     res=$?
 
     # get args
     toplevel=0
+    fromsignal=0
+    if [ "$1" = "--from-signal" ]
+    then
+        fromsignal=1
+        shift
+    fi
     if [ "$1" = "--toplevel" ]
     then
         toplevel=1
@@ -198,12 +211,26 @@ on_exit()
     fi
     cleanup_function=$1
 
+    warn_unexpected_issue=0
+    if [ $toplevel -eq 1 ]
+    then
+        if [ $fromsignal -eq 1 -o $res -gt 0 ]
+        then
+            warn_unexpected_issue=1
+        fi
+    fi
+
     # undo operations (remove artefacts)
-    if [ $res -gt 0 -a $toplevel -eq 1 ]
+    if [ $warn_unexpected_issue -eq 1 ]
     then
         echo
-        echo "E: an error occured."
-        echo "E: did you try 'debootstick --help-os-support'?"
+        if [ $fromsignal -eq 1 ]
+        then    # signal
+            echo "Interrupted."
+        else    # error
+            echo "E: an error occured."
+            echo "E: did you try 'debootstick --help-os-support'?"
+        fi
         echo -n "I: restoring a clean state... "
         undo_all
         echo "done"
@@ -227,6 +254,7 @@ start_failsafe_mode()
     set -e
     # clean remaining artefacts before exitting
     trap "on_exit $*" EXIT
+    trap "on_sigint $*" INT
 
     # allow with constructs (see f_with function)
     alias with="while f_with"
