@@ -662,5 +662,10 @@ list_available_packages()
 
 install_packages()
 {
-    apt-get -qq --no-install-recommends install $* >/dev/null
+    packages=$*
+
+    # we ignore the usual warning about the delayed
+    # package configuration
+    apt-get -qq --no-install-recommends install $packages 2>&1 >/dev/null | \
+        happy_grep -v "delaying package configuration" 1>&2
 }
