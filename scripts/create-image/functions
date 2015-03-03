@@ -113,6 +113,18 @@ $filtered_content
 EOF
 }
 
+# let grub find our virtual device
+update_grup_device_map()
+{
+    loop_device=$1
+    cd /
+    mkdir -p boot/grub
+    cat > boot/grub/device.map << END_MAP
+(hd0) $loop_device
+END_MAP
+    cd - >/dev/null
+}
+
 # get total size needed taking into account
 # an overhead.
 # $1: the initial size (not taking the overhead into account)
@@ -443,6 +455,8 @@ f_with()
 quiet_grub_install()
 {
     device=$1
+
+    update_grup_device_map $device
 
     # grub-install & update-grub print
     # messages to standard error stream

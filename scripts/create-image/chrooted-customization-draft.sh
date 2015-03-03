@@ -31,13 +31,11 @@ failsafe mount -t proc none /proc
 failsafe_mount_sys_and_dev
 export DEBIAN_FRONTEND=noninteractive LANG=C
 
-# let grub find our virtual device
-# we will install the bootloader on the final device anyway,
-# this is only useful to avoid warnings
-mkdir -p boot/grub
-cat > boot/grub/device.map << END_MAP
-(hd0) $loop_device
-END_MAP
+# if update-grub is called as part of the package installation
+# it should properly find our virtual device.
+# (we will properly install the bootloader on the final device
+# anyway, this is only useful to avoid warnings)
+update_grup_device_map $loop_device
 
 # install missing packages
 echo -n "I: draft image - updating package manager database... "
