@@ -20,11 +20,16 @@ usage_and_exit()
 describe_os_support()
 {
     cat << EOF
-debootstick was tested successfully with the following kinds of chroot-environments:
+debootstick was tested successfully with the following kinds of
+chroot-environments:
 - Ubuntu 14.04 (trusty)
 - Ubuntu 12.04 (precise), with the 'universe' component enabled
 - Debian 8 (jessie)
 - Debian 7 (wheezy)
+debootstick currently runs on amd64 operating systems only.
+It generates images that can be booted on amd64 systems only.
+Therefore the architecture of the provided chroot-environment
+should also be amd64.
 EOF
 }
 
@@ -132,15 +137,35 @@ apply_overheads_percent()
 }
 
 # check that the given directory looks like an OS
-# file structure, with shell and package manager
+# file structure that we can handle correctly.
 check_fs_hierarchy()
 {
     fs_tree="$1"
-    result=1
-    chroot "$fs_tree" which sh >/dev/null 2>&1 && \
-    chroot "$fs_tree" which apt-get >/dev/null 2>&1 && \
-            result=0    || true
-    return $result
+    chroot "$fs_tree" which sh >/dev/null 2>&1 || {
+        echo "E: No sh found in $1."
+        echo "E: This does not seem to be a chroot environment."
+        return 1
+    }
+    chroot "$fs_tree" which apt-get >/dev/null 2>&1 || {
+        echo "E: No apt-get found in $1."
+        echo "E: debootstick cannot handle this kind of chroot environment."
+        echo "E: Run 'debootstick --help-os-support' for more info."
+        return 1
+    }
+    chroot "$fs_tree" echo -n >/dev/null 2>&1 || {
+        echo "E: Could not enter the chroot environment."
+        echo "E: debootstick currently handles only amd64-based chroot environments."
+        echo "E: Run 'debootstick --help-os-support' for more info."
+        return 1
+    }
+    arch="$(chroot "$fs_tree" dpkg --print-architecture 2>&1 || true)"
+    if [ "$arch" != "amd64" ]
+    then
+        echo "E: Got '$arch' while trying to check the architecture of the chroot environment."
+        echo "E: debootstick currently handles amd64-based chroot environments only."
+        echo "E: Run 'debootstick --help-os-support' for more info."
+        return 1
+    fi
 }
 
 finalize_fs()
