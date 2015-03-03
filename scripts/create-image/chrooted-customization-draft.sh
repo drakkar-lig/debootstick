@@ -46,7 +46,7 @@ kernel_package=$(list_available_packages "^linux-image-((generic)|(amd64))$")
 if [ -z "$kernel_package" ]
 then
     echo "E: no linux kernel package found."
-    echo "E: unsupported target OS variant."
+    echo "E: Run 'debootstick --help-os-support' for more info."
     exit 1
 fi
 
