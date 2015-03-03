@@ -1,4 +1,6 @@
-Copyright: 2014-2015 Etienne Dublé <etienne.duble@imag.fr>
+Copyright: 2014-2015 Centre National de la Recherche Scientifique (CNRS)
+
+Contributors: Etienne Dublé <etienne.duble@imag.fr> 2014-2015
 
 License: BSD-3-Clause
  Redistribution and use in source and binary forms, with or without
@@ -9,7 +11,7 @@ License: BSD-3-Clause
  2. Redistributions in binary form must reproduce the above copyright
     notice, this list of conditions and the following disclaimer in the
     documentation and/or other materials provided with the distribution.
- 3. Neither the name of the University nor the names of its contributors
+ 3. Neither the name of CNRS nor the names of its contributors
     may be used to endorse or promote products derived from this software
     without specific prior written permission.
  .
