@@ -103,9 +103,9 @@ update_fstab()
 
     # remove the line with "UNCONFIGURED"
     # and add or update the line mounting /
-    filtered_content=$(cat /etc/fstab |             \
-                        grep -vw "UNCONFIGURED" |   \
-                        grep -vw "/" || true
+    filtered_content=$(cat /etc/fstab |                 \
+                        happy_grep -vw "UNCONFIGURED" | \
+                        happy_grep -vw "/"
     )
     cat > /etc/fstab << EOF
 $final_root_device / ext4 errors=remount-ro 0 1
@@ -123,6 +123,15 @@ update_grup_device_map()
 (hd0) $loop_device
 END_MAP
     cd - >/dev/null
+}
+
+# grep returns non-zero if no line is found.
+# in some cases, having no line is expected
+# (e.g. in the case of error lines)
+# thus the or-true construct.
+happy_grep()
+{
+    grep "$@" || true
 }
 
 # get total size needed taking into account
@@ -466,15 +475,12 @@ quiet_grub_install()
         grub-install $device    && \
         update-grub
         return_code=$?
-    } 2>&1 |    grep -v "No error"          | \
-                grep -v "Installing"        | \
-                grep -v "Generating"        | \
-                grep -v "Found .* image:"   | \
-                grep -v "^done$" 1>&2        || true
+    } 2>&1 |    happy_grep -v "No error"          | \
+                happy_grep -v "Installing"        | \
+                happy_grep -v "Generating"        | \
+                happy_grep -v "Found .* image:"   | \
+                happy_grep -v "^done$" 1>&2
 
-    # grep returns non-zero if no line is found.
-    # in our case, having no error line is a good
-    # thing, thus the or-true construct.
     # the return value we want is the one we stored
     # earlier:
     return $return_code
@@ -646,7 +652,7 @@ EOF
 package_is_installed()
 {
     dpkg-query -W --showformat='${Status}\n' \
-                    $1 2>/dev/null | grep -c "^i" || true
+                    $1 2>/dev/null | happy_grep -c "^i"
 }
 
 list_available_packages()
