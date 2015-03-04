@@ -1,7 +1,7 @@
 Source: debootstick
 Section: admin
 Priority: extra
-Maintainer: Etienne Dublé <etienne.duble@imag.fr>
+Maintainer: Etienne Dublé <etienne.dublegmail.com>
 Build-Depends: debhelper (>= 9)
 Standards-Version: 3.9.5
 Homepage: http://drakkar-lig.github.io/debootstick
@@ -13,7 +13,12 @@ Architecture: amd64
 Depends: ${misc:Depends}, lvm2, kpartx, grub-efi-amd64-bin, uuid-runtime, gdisk, dosfstools
 Suggests: debootstrap, kvm
 Description: Turn a chroot environment into a bootable image
- debootstick is used to generate a bootable image from 
- a Debian or Ubuntu chroot environment (such as one generated with debootstrap).
- This image should then be copied to a USB stick or disk. 
+ debootstick is used to generate a bootable image from a Debian
+ or Ubuntu chroot environment (such as one generated with
+ debootstrap, docker export, etc.).
+ This image should then be copied to a USB stick or disk and
+ used to boot any amd64 machine (BIOS- or UEFI-based).
+ The embedded system is ready to be started live (no
+ installation procedure needed), and is fully upgradeable
+ (kernel and bootloader included).
 
