@@ -62,10 +62,9 @@ then
 fi
 
 # ensure we are root
-if [ "$USER" != "root" ]
-then
-    sudo $0 $*
-    exit
+if [ $(id -u) -ne 0 ]; then
+    echo "debootstick should be run as root. Trying sudo..."
+    exec sudo "$0" "$@"
 fi
 
 # 2nd arg is a writable file path
