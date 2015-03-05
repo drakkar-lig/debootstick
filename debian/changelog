@@ -4,7 +4,7 @@ debootstick (0.9c) unstable; urgency=low
   * Ensure grub device map is ok when installing grub.
   * Minor updates.
 
- -- Etienne Dublé <etienne.duble@imag.fr>  Fri, 20 Feb 2015 10:26:33 +0100
+ -- Etienne Dublé <etienne.duble@gmail.com>  Fri, 20 Feb 2015 10:26:33 +0100
 
 debootstick (0.9b) trusty; urgency=low
 
