@@ -35,7 +35,7 @@ The embedded system is:
 .SH OPTIONS
 .B debootstick
 follows the usual GNU command line syntax, with long
-options starting with two dashes (`-').
+options starting with two dashes (`\-').
 A summary of options is included below.
 .TP
 .B \-h, \-\-help
@@ -44,16 +44,16 @@ Show summary of options.
 .B \-v, \-\-version
 Show version of program.
 .TP
-.B \-\-help-os-support
+.B \-\-help\-os\-support
 Describe which chroot environments are supported.
 .TP
-.B \-\-config-root-password-ask
+.B \-\-config\-root\-password\-ask
 Prompt for the root password of the embedded system and set it accordingly.
 .TP
-.B \-\-config-root-password-none
+.B \-\-config\-root\-password\-none
 Remove the root password of the embedded system (root login will not prompt any password).
 .TP
-.B \-\-config-grub-on-serial-line
+.B \-\-config\-grub\-on\-serial\-line
 Update grub configuration to show boot menu on serial line.
 
 .SH EXAMPLES
@@ -64,7 +64,7 @@ The most common workflow is the following.
 .B 1-
 Generate a chroot environment:
 .br
-\fBdebootstrap\fP --arch=amd64 --variant=minbase trusty /tmp/trusty_tree
+\fBdebootstrap\fP \-\-arch=amd64 \-\-variant=minbase trusty /tmp/trusty_tree
 
 .PP
 .B 2-
@@ -76,7 +76,7 @@ Generate a chroot environment:
 .B 3-
 Generate the bootable image:
 .br
-\fBdebootstick\fP --config-root-password-ask /tmp/trusty_tree /tmp/img.dd
+\fBdebootstick\fP \-\-config\-root\-password\-ask /tmp/trusty_tree /tmp/img.dd
 .br
 Enter root password:
 .br
@@ -91,24 +91,24 @@ OK
 .B 4-
 Test it with kvm.
 .br
-\fBcp\fP /tmp/img.dd /tmp/img.dd-test    # let's work on a copy, our test is destructive
+\fBcp\fP /tmp/img.dd /tmp/img.dd\-test    # let's work on a copy, our test is destructive
 .br
-\fBtruncate\fP -s 2G /tmp/img.dd-test    # simulate a copy on a 2G-large USB stick
+\fBtruncate\fP \-s 2G /tmp/img.dd\-test    # simulate a copy on a 2G-large USB stick
 .br
-\fBkvm\fP -hda /tmp/img.dd-test          # the test itself (BIOS mode)
+\fBkvm\fP \-hda /tmp/img.dd\-test          # the test itself (BIOS mode)
 
 .PP
 .B 5-
 Copy the boot image to a USB stick or disk.
 .br
-\fBdd\fP bs=10M if=\fB/tmp/img.dd\fP of=/dev/your-device
+\fBdd\fP bs=10M if=\fB/tmp/img.dd\fP of=/dev/your\-device
 
 .PP
 The USB device may now be booted on any amd64 system (BIOS or UEFI).
 
 .SH NOTES
 It is also possible to test the UEFI boot with \fBkvm\fP, if you have the
-\fBovmf\fP package installed, by adding \fB-bios /path/to/OVMF.fd\fP to
+\fBovmf\fP package installed, by adding \fB\-bios /path/to/OVMF.fd\fP to
 the \fBkvm\fP command line.
 
 .PP
