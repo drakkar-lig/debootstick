@@ -1,32 +1,5 @@
 debootstick (0.9c) unstable; urgency=low
 
   * Initial Debian release. (Closes: Bug#779654)
-  * Ensure grub device map is ok when installing grub.
-  * Minor updates.
 
- -- Etienne Dublé <etienne.duble@gmail.com>  Fri, 20 Feb 2015 10:26:33 +0100
-
-debootstick (0.9b) trusty; urgency=low
-
-  * Description / documentation update
-
- -- Etienne Dublé <etienne.duble@imag.fr>  Fri, 20 Feb 2015 10:26:33 +0100
-
-debootstick (0.9) trusty; urgency=low
-
-  * Many usability and robustness improvements
-  * Support wheezy, jessie, precise and trusty chroot environments
-
- -- Etienne Dublé <etienne.duble@imag.fr>  Fri, 20 Feb 2015 09:55:02 +0100
-
-debootstick (0.1b) trusty; urgency=low
-
-  * Improved minimal space computations
-
- -- Etienne Dublé <etienne.duble@imag.fr>  Mon, 07 Jan 2015 16:19:53 +0100
-
-debootstick (0.1a) trusty; urgency=low
-
-  * Initial release
-
- -- Etienne Dublé <etienne.duble@imag.fr>  Mon, 05 Jan 2015 16:53:33 +0100
+ -- Etienne Dublé <etienne.duble@gmail.com>  Fri, 20 Mar 2015 10:26:33 +0000
