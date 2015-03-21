@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # constants
 VERSION='@VERSION@'     # updated at install time
