@@ -21,6 +21,7 @@ fi
 loop_device=$1
 root_password_request=$2
 shift 2
+# eval <var>=<value> parameters
 while [ ! -z "$1" ]
 do
     eval "$1"
@@ -42,16 +43,29 @@ echo -n "I: draft image - updating package manager database... "
 apt-get update -qq
 echo done
 
-kernel_package=$(list_available_packages "^linux-image-((generic)|(amd64))$")
 if [ -z "$kernel_package" ]
 then
-    echo "E: no linux kernel package found."
-    echo "E: Run 'debootstick --help-os-support' for more info."
+    # kernel package not specified, install a default one
+    kernel_search_regexp="^linux-image-((generic)|(amd64))$"
+    error_if_missing="$(
+        echo "E: no linux kernel package found."
+        echo "E: Run 'debootstick --help-os-support' for more info."
+    )"
+else
+    kernel_search_regexp="^${kernel_package}$"
+    error_if_missing="E: no such package '$kernel_package'"
+fi
+
+kernel_package_found=$(
+        list_available_packages "$kernel_search_regexp")
+if [ -z "$kernel_package_found" ]
+then
+    echo "$error_if_missing"
     exit 1
 fi
 
 to_be_installed=""
-for package in $kernel_package $OTHER_PACKAGES
+for package in $kernel_package_found $OTHER_PACKAGES
 do
     if [ $(package_is_installed $package) -eq 0 ]
     then

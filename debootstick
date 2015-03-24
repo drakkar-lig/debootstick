@@ -37,6 +37,10 @@ do
             echo "debootstick $VERSION"
             exit 0
         ;;
+        --kernel-package)
+            kernel_package="$2"
+            shift 2
+        ;;
         --config-root-password-ask)
             root_password_request="ASK"
             shift
@@ -172,7 +176,8 @@ with mount -o bind /etc/resolv.conf $PWD/etc/resolv.conf; do
     chroot . ./chrooted-customization-draft.sh $CHROOTED_DEBUG    \
                 $draft_device $root_password_request        \
                 final_lvm_vg=$FINAL_LVM_VG   \
-                config_grub_on_serial_line=$config_grub_on_serial_line
+                config_grub_on_serial_line=$config_grub_on_serial_line  \
+                kernel_package="$kernel_package"
 done
 rm ./chrooted-customization-draft.sh
 cd ..
