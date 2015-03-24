@@ -82,12 +82,17 @@ estimated_size_xb()
 
 estimated_size_kb()
 {
-    estimated_size_xb k $1
+    estimated_size_xb k "$1"
 }
 
 estimated_size_mb()
 {
-    estimated_size_xb m $1
+    estimated_size_xb m "$1"
+}
+
+real_size_human_readable()
+{
+    du -sh --apparent-size "$1" | awk '{print $1}'
 }
 
 device_size_kb()
