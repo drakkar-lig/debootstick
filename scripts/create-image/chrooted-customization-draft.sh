@@ -146,6 +146,13 @@ echo -n "I: draft image - updating fstab... "
 update_fstab $final_lvm_vg
 echo done
 
+if [ "$config_hostname" != "" ]
+then
+    echo -n "I: draft image - setting hostname... "
+    echo "$config_hostname" > /etc/hostname
+    echo done
+fi
+
 # umount all
 undo_all
 
