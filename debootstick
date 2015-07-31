@@ -24,6 +24,7 @@ export chrooted_functions="$(
 root_password_request="NO_REQUEST"
 config_grub_on_serial_line=0
 system_type="live"
+kernel_bootargs=""
 while [ $# != 0 ] 
 do
     case "$1" in
@@ -40,6 +41,10 @@ do
         ;;
         --kernel-package)
             kernel_package="$2"
+            shift 2
+        ;;
+        --config-kernel-bootargs)
+            kernel_bootargs="$2"
             shift 2
         ;;
         --config-root-password-ask)
@@ -191,7 +196,8 @@ with mount -o bind /etc/resolv.conf $PWD/etc/resolv.conf; do
                 $draft_device $root_password_request        \
                 final_lvm_vg=$FINAL_LVM_VG   \
                 config_grub_on_serial_line=$config_grub_on_serial_line  \
-                kernel_package="$kernel_package"
+                kernel_package="$kernel_package"    \
+                "kernel_bootargs=\"$kernel_bootargs\""
 done
 rm ./chrooted-customization-draft.sh
 cd ..

@@ -62,6 +62,11 @@ See section \fBINSTALLER MEDIA\fP below.
 Specify the kernel that should be installed. Without this option, \fBdebootstick\fP
 will install a common one (depending on the embedded distribution).
 .TP
+.B \-\-config\-kernel\-bootargs BOOTARGS
+Specify boot arguments to be added to the kernel. (You may specify several arguments, e.g.
+\fB\-\-config\-kernel\-bootargs \(dqconsole=ttyS0 acpi=off\(dq\fP.)
+.
+.TP
 .B \-\-config\-root\-password\-ask
 Prompt for the root password of the embedded system and set it accordingly.
 .TP

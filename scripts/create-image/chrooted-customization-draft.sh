@@ -93,7 +93,7 @@ EOF
 fi
 
 . /etc/default/grub
-LINUX_OPTIONS="rootdelay=3"
+LINUX_OPTIONS="rootdelay=3 $kernel_bootargs"
 GRUB_CMDLINE_LINUX="$GRUB_CMDLINE_LINUX $LINUX_OPTIONS"
 updated_content="$(cat /etc/default/grub | \
         sed -e "s/GRUB_CMDLINE_LINUX=.*/GRUB_CMDLINE_LINUX=\"$GRUB_CMDLINE_LINUX\"/")"
