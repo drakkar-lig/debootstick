@@ -1,6 +1,6 @@
 .\" (C) Copyright 2015 Etienne Dublé <etienne.duble@imag.fr>,
 .\"
-.TH DEBOOTSTICK 8 "February 10, 2015"
+.TH DEBOOTSTICK 8 "July 30, 2015"
 .\" Please adjust this date whenever revising the manpage.
 
 .SH NAME
@@ -32,6 +32,9 @@ The embedded system is:
 .br
 - compatible with BIOS and UEFI systems
 
+.B debootstick
+can also generate installer media. See option \fB\-\-system\-type\fP below.
+
 .SH OPTIONS
 .B debootstick
 follows the usual GNU command line syntax, with long
@@ -46,6 +49,14 @@ Show version of program.
 .TP
 .B \-\-help\-os\-support
 Describe which chroot environments are supported.
+.TP
+.B \-\-system\-type [live|installer]
+Specify which kind of system is targeted. The default is \fBlive\fP.
+When booting a system where \fBinstaller\fP was selected,
+the system will try to migrate to a larger device on first startup.
+If \fBlive\fP was selected, or if no such option was specified,
+no migration will occur.
+See section \fBINSTALLER MEDIA\fP below.
 .TP
 .B \-\-kernel\-package PACKAGE_NAME
 Specify the kernel that should be installed. Without this option, \fBdebootstick\fP
@@ -109,6 +120,18 @@ Copy the boot image to a USB stick or disk.
 
 .PP
 The USB device may now be booted on any amd64 system (BIOS or UEFI).
+
+.SH INSTALLER MEDIA
+
+When first booting a system built with the \fB\-\-system\-type installer\fP
+option, it will look for a larger disk and move to that disk.
+This operation does not require a reboot. Once done, the system will just continue its
+bootup procedure (and the initial device can be removed).
+.br
+\fBCAUTION:\fP Any data on the target disk will be lost.
+.br
+Also note that the system is moved, not copied. Thus the initial device cannot be used
+anymore after the migration, unless you copy an image again, of course.
 
 .SH NOTES
 It is also possible to test the UEFI boot with \fBkvm\fP, if you have the

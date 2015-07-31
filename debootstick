@@ -23,6 +23,7 @@ export chrooted_functions="$(
 # check options
 root_password_request="NO_REQUEST"
 config_grub_on_serial_line=0
+system_type="live"
 while [ $# != 0 ] 
 do
     case "$1" in
@@ -53,6 +54,10 @@ do
             config_grub_on_serial_line=1
             shift
         ;;
+        --system-type)
+            system_type="$2"
+            shift 2
+        ;;
         *)
             break
         ;;
@@ -64,6 +69,15 @@ if [ -z "$2" ]
 then
     usage_and_exit 1
 fi
+
+# let's verify system_type variable
+case "$system_type" in
+    'live'|'installer')
+        ;;  # ok
+    *)
+        echo "--system-type option value must be either 'live' or 'installer'." >&2
+        exit 1
+esac
 
 # ensure we are root
 if [ $(id -u) -ne 0 ]; then
@@ -224,6 +238,7 @@ release_image draft     # not needed anymore
 # add the dbstck.conf file
 cat > $final_lvroot_mountpoint/dbstck.conf << EOF
 LVM_VG=$FINAL_LVM_VG
+SYSTEM_TYPE=$system_type
 EOF
 
 # step7: install BIOS bootloader
