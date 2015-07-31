@@ -86,9 +86,7 @@ rm -rf /var/lib/apt/lists/*
 if [ "$config_grub_on_serial_line" -gt 0 ]
 then
     # display the grub interface on serial line
-    cat > ./etc/default/grub << EOF
-GRUB_TIMEOUT=4
-GRUB_DISTRIBUTOR="debootstick Linux"
+    cat >> ./etc/default/grub << EOF
 GRUB_TERMINAL=serial
 GRUB_SERIAL_COMMAND="serial --speed=115200 --unit=0 --word=8 --parity=no --stop=1"
 EOF
