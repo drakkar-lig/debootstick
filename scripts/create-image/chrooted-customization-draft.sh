@@ -95,9 +95,8 @@ fi
 . /etc/default/grub
 LINUX_OPTIONS="rootdelay=3 $kernel_bootargs"
 GRUB_CMDLINE_LINUX="$GRUB_CMDLINE_LINUX $LINUX_OPTIONS"
-updated_content="$(cat /etc/default/grub | \
-        sed -e "s/GRUB_CMDLINE_LINUX=.*/GRUB_CMDLINE_LINUX=\"$GRUB_CMDLINE_LINUX\"/")"
-echo "$updated_content" > /etc/default/grub
+sed -i -e "s/GRUB_CMDLINE_LINUX=.*/GRUB_CMDLINE_LINUX=\"$GRUB_CMDLINE_LINUX\"/" \
+        /etc/default/grub
 
 # for text console in kvm
 if [ "$debug" = "1" ]
@@ -130,10 +129,8 @@ echo -n "I: draft image - setting up bootloader... "
 # note: even if the file etc/grub.d/10_linux is re-created
 # after an upgrade of the package grub-common, our script
 # 09_linux_custom will be executed first and take precedence.
-sed -e 's/quick_boot=.*/quick_boot=0/' etc/grub.d/10_linux > \
-        etc/grub.d/09_linux_custom
-chmod +x etc/grub.d/09_linux_custom
-rm etc/grub.d/10_linux
+sed -i -e 's/quick_boot=.*/quick_boot=0/' etc/grub.d/10_linux
+mv etc/grub.d/10_linux etc/grub.d/09_linux_custom
 
 # install grub on this temporary work-image
 # This may not seem useful (it will be repeated on the final
