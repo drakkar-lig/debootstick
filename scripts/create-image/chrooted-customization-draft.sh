@@ -153,6 +153,26 @@ then
     echo done
 fi
 
+echo -n "I: draft image - performing sanity checks... "
+should_update_hosts_file=0
+if [ ! -e /etc/hosts ]
+then
+    should_update_hosts_file=1
+else
+    if [ "$(cat /etc/hosts | wc -l)" -eq 0 ]
+    then
+        should_update_hosts_file=1
+    fi
+fi
+echo done
+
+if [ $should_update_hosts_file -eq 1 ]
+then
+    echo -n "I: draft image - generating /etc/hosts (it was empty or missing)... "
+    generate_hosts_file
+    echo done
+fi
+
 # umount all
 undo_all
 
