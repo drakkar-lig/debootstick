@@ -22,6 +22,7 @@ export chrooted_functions="$(
 
 # check options
 root_password_request="NO_REQUEST"
+root_password_on_first_boot=0
 config_grub_on_serial_line=0
 system_type="live"
 kernel_bootargs=""
@@ -54,6 +55,10 @@ do
         ;;
         --config-root-password-none)
             root_password_request="NO_PASSWORD"
+            shift
+        ;;
+        --config-root-password-first-boot)
+            root_password_on_first_boot=1
             shift
         ;;
         --config-hostname)
@@ -251,6 +256,7 @@ release_image draft     # not needed anymore
 cat > $final_lvroot_mountpoint/dbstck.conf << EOF
 LVM_VG=$FINAL_LVM_VG
 SYSTEM_TYPE=$system_type
+ASK_ROOT_PASSWORD_ON_FIRST_BOOT=$root_password_on_first_boot
 EOF
 
 # step7: install BIOS bootloader

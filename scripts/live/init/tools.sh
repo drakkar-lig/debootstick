@@ -191,3 +191,20 @@ filter_quiet()
     return 1
 }
 
+# we deliberately let the echo enabled will typing
+# the password in order to let the user verify what
+# he is typing (i.e. the keymap may not be what he is
+# used to). Once validated, we replace chars with stars.
+ask_and_set_pass()
+{
+    echo "Enter a root password for this system."
+    # prompt for the password
+    read -p 'password: ' password
+    # return 1 line up
+    echo -en "\033[1A\r"
+    # overwrite with stars
+    echo "password: $(echo "$password" | sed -e 's/./*/g')"
+    # set the password
+    echo "root:$password" | chpasswd
+}
+
