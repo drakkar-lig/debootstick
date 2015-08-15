@@ -192,11 +192,11 @@ echo done
 # step3: copy original tree to work image and modify it
 echo -n "I: draft image - copying filesystem tree... "
 cd $draft_lvroot_mountpoint
-cp -rp $ORIG_TREE/* .
+cp -a $ORIG_TREE/* .
 echo done
 mkdir -p opt/debootstick
-cp -rp $DBSTCK_DIR/scripts/live opt/debootstick/live
-cp -p $DBSTCK_DIR/scripts/create-image/chrooted-customization-draft.sh .
+cp -a $DBSTCK_DIR/scripts/live opt/debootstick/live
+cp -a $DBSTCK_DIR/scripts/create-image/chrooted-customization-draft.sh .
 # we will need internet connectivity for package 
 # management in the chroot. Ensure we have a valid DNS setup there.
 [ -f etc/resolv.conf ] || touch etc/resolv.conf
@@ -248,7 +248,7 @@ create_formatted_image \
         $final_image_abspath
 echo done
 echo -n "I: final image - copying content from draft image... "
-cp -rp $draft_lvroot_mountpoint/* $final_lvroot_mountpoint/
+cp -a $draft_lvroot_mountpoint/* $final_lvroot_mountpoint/
 echo done
 release_image draft     # not needed anymore
 
@@ -266,7 +266,7 @@ cd $final_lvroot_mountpoint
 # creating new files may cause problems.
 # so we will use the directory /tmp that we mount in memory.
 with mount -t tmpfs none $final_lvroot_mountpoint/tmp; do
-    cp -p $DBSTCK_DIR/scripts/create-image/chrooted-customization-final.sh tmp
+    cp -a $DBSTCK_DIR/scripts/create-image/chrooted-customization-final.sh tmp
     chroot . tmp/chrooted-customization-final.sh $final_device
 done
 cd ..
