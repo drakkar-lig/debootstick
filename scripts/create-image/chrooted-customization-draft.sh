@@ -1,9 +1,4 @@
 #!/bin/sh
-# note:
-# - linux-image-generic is for ubuntu
-# - linux-image-amd64 is for debian
-# our process below will check which one exists.
-KERNEL_ALTERNATIVE_PACKAGES="linux-image-generic linux-image-amd64"
 OTHER_PACKAGES="lvm2 gdisk grub-pc"
 eval "$chrooted_functions"
 start_failsafe_mode
@@ -46,7 +41,17 @@ echo done
 if [ -z "$kernel_package" ]
 then
     # kernel package not specified, install a default one
-    kernel_search_regexp="^linux-image-((generic)|(amd64))$"
+    # * ubuntu: linux-image-generic
+    # * debian on i386: linux-image-686-pae
+    # * debian on amd64: linux-image-amd64
+    case "$target_arch" in
+    "amd64")
+        kernel_search_regexp="^linux-image-((generic)|(amd64))$"
+        ;;
+    "i386")
+        kernel_search_regexp="^linux-image-((generic)|(686-pae))$"
+        ;;
+    esac
     error_if_missing="$(
         echo "E: no linux kernel package found."
         echo "E: Run 'debootstick --help-os-support' for more info."

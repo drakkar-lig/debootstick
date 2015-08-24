@@ -116,6 +116,9 @@ fi
 # file hierarchy
 check_fs_hierarchy "$1" || usage_and_exit
 
+# get and verify target architecture
+target_arch=$(check_target_arch "$1")
+
 # if we are here, command line is ok :)
 if [ "$root_password_request" = "ASK" ]
 then
@@ -164,8 +167,18 @@ cd $DBSTCK_TMPDIR
 
 # step0: generate a UEFI bootloader binary
 echo -n "I: generating a UEFI bootloader binary... "
-build_uefi_binary_image BOOTX64.efi
-efi_image_size_bytes=$(stat -c "%s" BOOTX64.efi)
+case $target_arch in
+    "amd64")
+        grub_arch="x86_64-efi"
+        img_name="BOOTX64.efi"
+        ;;
+    "i386")
+        grub_arch="i386-efi"
+        img_name="BOOTIA32.efi"
+        ;;
+esac
+build_uefi_binary_image $grub_arch $img_name
+efi_image_size_bytes=$(stat -c "%s" $img_name)
 efi_partition_size_kb=$(apply_overhead_percent \
             $((efi_image_size_bytes/1024)) $FAT_OVERHEAD_PERCENT)
 echo done
@@ -208,7 +221,8 @@ with mount -o bind /etc/resolv.conf $PWD/etc/resolv.conf; do
                 config_grub_on_serial_line=$config_grub_on_serial_line  \
                 kernel_package="\"$kernel_package\""    \
                 kernel_bootargs="\"$kernel_bootargs\"" \
-                config_hostname="\"$config_hostname\""
+                config_hostname="\"$config_hostname\"" \
+                target_arch="$target_arch"
 done
 rm ./chrooted-customization-draft.sh
 cd ..
@@ -274,7 +288,7 @@ cd ..
 # step8: setup the EFI boot partition
 echo -n "I: final image - setting up the EFI boot partition... "
 mkdir -p $final_efipart_mountpoint/EFI/BOOT
-mv $DBSTCK_TMPDIR/BOOTX64.efi $final_efipart_mountpoint/EFI/BOOT/
+mv $DBSTCK_TMPDIR/*.efi $final_efipart_mountpoint/EFI/BOOT/
 echo done
 
 # step9: clean up

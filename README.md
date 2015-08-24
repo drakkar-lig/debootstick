@@ -4,11 +4,12 @@ _Turn a chroot environment into a bootable image._
 
 Trivial example:
 ```
-$ debootstrap --arch=amd64 --variant=minbase trusty trusty_tree
+$ debootstrap --variant=minbase trusty trusty_tree
 $ debootstick --config-root-password-none trusty_tree img.dd
 $ dd if=img.dd of=/dev/<your_device> bs=10M
 ```
-Your USB device now embeds a live Ubuntu system and can be booted on any amd64 computer (UEFI or BIOS).
+Your USB device now embeds a live Ubuntu system and can be booted
+on any UEFI or BIOS computer.
 
 Embedded OS features
 --------------------

@@ -1,6 +1,6 @@
 .\" (C) Copyright 2015 Etienne Dublé <etienne.duble@imag.fr>,
 .\"
-.TH DEBOOTSTICK 8 "July 30, 2015"
+.TH DEBOOTSTICK 8 "August 24, 2015"
 .\" Please adjust this date whenever revising the manpage.
 
 .SH NAME
@@ -89,19 +89,19 @@ The most common workflow is the following.
 .B 1-
 Generate a chroot environment:
 .br
-\fBdebootstrap\fP \-\-arch=amd64 \-\-variant=minbase trusty /tmp/trusty_tree
+\fBdebootstrap\fP \-\-variant=minbase jessie /tmp/jessie_tree
 
 .PP
 .B 2-
 (Optionaly) customize it:
 .br
-\fBchroot\fP /tmp/trusty_tree; [...]; exit
+\fBchroot\fP /tmp/jessie_tree; [...]; exit
 
 .PP
 .B 3-
 Generate the bootable image:
 .br
-\fBdebootstick\fP \-\-config\-root\-password\-ask /tmp/trusty_tree /tmp/img.dd
+\fBdebootstick\fP \-\-config\-root\-password\-ask /tmp/jessie_tree /tmp/img.dd
 .br
 Enter root password:
 .br
@@ -129,7 +129,18 @@ Copy the boot image to a USB stick or disk.
 \fBdd\fP bs=10M if=\fB/tmp/img.dd\fP of=/dev/your\-device
 
 .PP
-The USB device may now be booted on any amd64 system (BIOS or UEFI).
+The USB device may now be booted on any BIOS or UEFI system.
+
+.SH CPU ARCHITECTURES
+\fBdebootstick\fP expects a chroot environment built for amd64 or i386 systems.
+Of course, the resulting image will reflect this initial architecture, and thus
+it should be booted on a compatible system.
+.br
+\fBdebootstick\fP also needs that the host system is able to execute binaries
+in the chroot environment. For example, trying to run it with an
+amd64 chroot environment on an i386 host will fail.
+.br
+\fBdebootstick\fP will check this kind of things on startup.
 
 .SH INSTALLER MEDIA
 

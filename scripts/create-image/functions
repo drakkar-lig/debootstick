@@ -26,10 +26,7 @@ chroot-environments:
 - Ubuntu 12.04 (precise), with the 'universe' component enabled
 - Debian 8 (jessie)
 - Debian 7 (wheezy)
-debootstick currently runs on amd64 operating systems only.
-It generates images that can be booted on amd64 systems only.
-Therefore the architecture of the provided chroot-environment
-should also be amd64.
+Their binary architecture must be either i386 or amd64.
 EOF
 }
 
@@ -179,9 +176,17 @@ apply_overheads_percent()
 check_fs_hierarchy()
 {
     fs_tree="$1"
-    chroot "$fs_tree" which sh >/dev/null 2>&1 || {
-        echo "E: No sh found in $1."
+    ls "$fs_tree/bin/echo" >/dev/null 2>&1 || {
+        echo "E: No /bin/echo found in $1."
         echo "E: This does not seem to be a chroot environment."
+        return 1
+    }
+    chroot "$fs_tree" echo -n >/dev/null 2>&1 || {
+        echo "E: Unable to execute binaries (/bin/echo at least) in the chroot environment."
+        echo "E: Please verify:"
+        echo "E: - file permissions in the chroot environment"
+        echo "E: - that your host CPU is able to run binaries of the target architecture"
+        echo "E: Run 'debootstick --help-os-support' for info about compatible environments."
         return 1
     }
     chroot "$fs_tree" which apt-get >/dev/null 2>&1 || {
@@ -190,20 +195,23 @@ check_fs_hierarchy()
         echo "E: Run 'debootstick --help-os-support' for more info."
         return 1
     }
-    chroot "$fs_tree" echo -n >/dev/null 2>&1 || {
-        echo "E: Could not enter the chroot environment."
-        echo "E: debootstick currently handles only amd64-based chroot environments."
-        echo "E: Run 'debootstick --help-os-support' for more info."
-        return 1
-    }
+}
+
+check_target_arch()
+{
+    fs_tree="$1"
     arch="$(chroot "$fs_tree" dpkg --print-architecture 2>&1 || true)"
-    if [ "$arch" != "amd64" ]
-    then
-        echo "E: Got '$arch' while trying to check the architecture of the chroot environment."
-        echo "E: debootstick currently handles amd64-based chroot environments only."
-        echo "E: Run 'debootstick --help-os-support' for more info."
+    case "$arch" in
+    "amd64"|"i386") # ok
+        ;;
+    *)
+        echo "E: Got '$arch' while trying to check the architecture of the chroot environment." >&2
+        echo "E: debootstick currently cannot handle such a chroot environment." >&2
+        echo "E: Run 'debootstick --help-os-support' for more info." >&2
         return 1
-    fi
+        ;;
+    esac
+    echo "$arch"
 }
 
 finalize_fs()
@@ -646,7 +654,9 @@ EOF
 # this UEFI configuration also stays up-to-date.
 build_uefi_binary_image()
 {
-    out_binary_path="$(abspath "$1")"
+    grub_arch="$1"
+    img_name="$2"
+    out_binary_path="$(abspath "$img_name")"
     mkdir -p $DBSTCK_TMPDIR/efi/boot/grub
     cd $DBSTCK_TMPDIR/efi
     cat > boot/grub/grub.cfg << EOF
@@ -658,7 +668,7 @@ search --set rootfs --label ROOT
 configfile (\$rootfs)/boot/grub/grub.cfg
 EOF
     grub-mkstandalone \
-            --directory="/usr/lib/grub/x86_64-efi/" --format="x86_64-efi"   \
+            --directory="/usr/lib/grub/$grub_arch/" --format="$grub_arch"   \
             --compress="gz" --output="$out_binary_path"            \
             "boot/grub/grub.cfg"
     cd - >/dev/null # return to previous dir
