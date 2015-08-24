@@ -1,3 +1,13 @@
+debootstick (1.0) unstable; urgency=medium
+
+  * New option to generate installer images.
+  * i386 support (host and chroot environments).
+  * Fix about removal of host cache files (closes: Bug#794938).
+    Thanks to Julien Pinon for pointing this out.
+  * Minor improvements and bugfixes.
+
+ -- Etienne Dublé <etienne.duble@gmail.com>  Mon, 24 Aug 2015 11:09:07 +0000
+
 debootstick (0.9c) unstable; urgency=low
 
   * Initial Debian release. (Closes: Bug#779654)
