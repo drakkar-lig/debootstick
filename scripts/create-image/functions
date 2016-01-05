@@ -504,6 +504,7 @@ quiet_grub_install()
                 happy_grep -v "Installing"        | \
                 happy_grep -v "Generating"        | \
                 happy_grep -v "Found .* image:"   | \
+                happy_grep -v "lvmetad"           | \
                 happy_grep -v "^done$" 1>&2
 
     # the return value we want is the one we stored
@@ -691,8 +692,24 @@ install_packages()
 {
     packages=$*
 
+    # disable service startup at package installation
+    if [ -e /usr/sbin/policy-rc.d ]
+    then
+	mv /usr/sbin/policy-rc.d /usr/sbin/policy-rc.d.saved
+    fi
+    echo exit 101 > /usr/sbin/policy-rc.d
+    chmod +x /usr/sbin/policy-rc.d
+
     # we ignore the usual warning about the delayed
     # package configuration
     apt-get -qq --no-install-recommends install $packages 2>&1 >/dev/null | \
         happy_grep -v "delaying package configuration" 1>&2
+
+    # restore policy-rc.d conf
+    if [ -e /usr/sbin/policy-rc.d.saved ]
+    then
+	mv /usr/sbin/policy-rc.d.saved /usr/sbin/policy-rc.d
+    else
+        rm /usr/sbin/policy-rc.d
+    fi
 }
