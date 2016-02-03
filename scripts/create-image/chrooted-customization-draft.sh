@@ -88,6 +88,9 @@ fi
 apt-get -qq clean
 rm -rf /var/lib/apt/lists/*
 
+# tune LVM config
+tune_lvm
+
 if [ "$config_grub_on_serial_line" -gt 0 ]
 then
     # display the grub interface on serial line

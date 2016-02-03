@@ -208,3 +208,8 @@ ask_and_set_pass()
     echo "root:$password" | chpasswd
 }
 
+restore_lvm_conf()
+{
+    mv /etc/lvm/lvm.conf.saved /etc/lvm/lvm.conf
+}
+

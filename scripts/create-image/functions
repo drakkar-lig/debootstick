@@ -642,6 +642,16 @@ EOF
     undo losetup $image_device "$image_file"
 }
 
+# lvm commands should not rely on external daemons in the
+# startup scripts
+tune_lvm()
+{
+    mv /etc/lvm/lvm.conf /etc/lvm/lvm.conf.saved
+    sed -e 's/\(use_.*d =\).*/\1 0/g' \
+        -e 's/udev_sync =.*/udev_sync = 0/g' \
+        /etc/lvm/lvm.conf.saved > /etc/lvm/lvm.conf
+}
+
 # UEFI support
 # ------------
 
