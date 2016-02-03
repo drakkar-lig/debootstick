@@ -498,6 +498,7 @@ quiet_grub_install()
     # informational. Let's discard them.
     {
         grub-install $device    && \
+        update-initramfs -u
         update-grub
         return_code=$?
     } 2>&1 |    happy_grep -v "No error"          | \
