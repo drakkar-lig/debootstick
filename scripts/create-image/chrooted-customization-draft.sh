@@ -165,22 +165,22 @@ then
 fi
 
 echo -n "I: draft image - performing sanity checks... "
-should_update_hosts_file=0
-if [ ! -e /etc/hosts ]
-then
-    should_update_hosts_file=1
-else
-    if [ "$(cat /etc/hosts | wc -l)" -eq 0 ]
-    then
-        should_update_hosts_file=1
-    fi
-fi
+should_update_hosts_file=$(missing_or_empty /etc/hosts)
+should_update_locale_file=$(missing_or_empty /etc/default/locale)
 echo done
 
 if [ $should_update_hosts_file -eq 1 ]
 then
     echo -n "I: draft image - generating /etc/hosts (it was empty or missing)... "
     generate_hosts_file
+    echo done
+fi
+
+if [ $should_update_locale_file -eq 1 ]
+then
+    echo -n "I: draft image - adding missing locale definition... "
+    mkdir -p /etc/default
+    echo "LC_ALL=C" > /etc/default/locale
     echo done
 fi
 

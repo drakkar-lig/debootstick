@@ -30,6 +30,23 @@ Their binary architecture must be either i386 or amd64.
 EOF
 }
 
+missing_or_empty()
+{
+    f="$1"
+    if [ ! -e "$f" ]
+    then
+        echo 1
+        return
+    else
+        if [ "$(cat "$f" | wc -l)" -eq 0 ]
+        then
+            echo 1
+            return
+        fi
+    fi
+    echo 0
+}
+
 abspath()
 {
     echo "$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
