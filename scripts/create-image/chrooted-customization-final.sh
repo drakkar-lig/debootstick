@@ -6,6 +6,7 @@ start_failsafe_mode
 
 # in the chroot commands should use /tmp for temporary files
 export TMPDIR=/tmp
+export DEBIAN_FRONTEND=noninteractive LANG=C
 
 # classical mounts
 failsafe mount -t proc none /proc
