@@ -77,6 +77,9 @@ do
         to_be_installed="$to_be_installed $package"
     fi
 done
+
+[ -f /sbin/init ] || to_be_installed="$to_be_installed init"
+
 if [ "$to_be_installed" != "" ]
 then
     echo -n "I: draft image - installing packages:${to_be_installed}... "
