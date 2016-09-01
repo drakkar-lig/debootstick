@@ -141,11 +141,17 @@ case "$root_password_request" in
 esac
 
 echo -n "I: draft image - setting up bootloader... "
+# disable quickboot:
 # work around grub displaying error message with our LVM setup
+# disable vt_handoff:
+# the linux console should be visible during startup (especially
+# if we must enter the root password, or in installer-mode), do
+# not switch to vt7.
 # note: even if the file etc/grub.d/10_linux is re-created
 # after an upgrade of the package grub-common, our script
 # 09_linux_custom will be executed first and take precedence.
-sed -i -e 's/quick_boot=.*/quick_boot=0/' etc/grub.d/10_linux
+sed -i -e 's/quick_boot=.*/quick_boot=0/' \
+       -e 's/vt_handoff=.*/vt_handoff=0/' etc/grub.d/10_linux
 mv etc/grub.d/10_linux etc/grub.d/09_linux_custom
 
 # install grub on this temporary work-image
