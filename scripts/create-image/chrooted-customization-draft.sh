@@ -103,10 +103,15 @@ GRUB_SERIAL_COMMAND="serial --speed=115200 --unit=0 --word=8 --parity=no --stop=
 EOF
 fi
 
+# grub conf:
+# * add our custom boot parameters
+# * fix obsolete options in /etc/default/grub
+#   (https://bugs.launchpad.net/ubuntu/+source/grub2/+bug/1258597)
 . /etc/default/grub
 LINUX_OPTIONS="rootdelay=3 $kernel_bootargs"
 GRUB_CMDLINE_LINUX="$GRUB_CMDLINE_LINUX $LINUX_OPTIONS"
 sed -i -e "s/GRUB_CMDLINE_LINUX=.*/GRUB_CMDLINE_LINUX=\"$GRUB_CMDLINE_LINUX\"/" \
+       -e "s/^GRUB_HIDDEN/#GRUB_HIDDEN/g" \
         /etc/default/grub
 
 # for text console in kvm
