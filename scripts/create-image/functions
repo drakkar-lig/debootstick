@@ -20,12 +20,13 @@ usage_and_exit()
 describe_os_support()
 {
     cat << EOF
-debootstick was tested successfully with the following kinds of
+This version of debootstick was tested successfully with the following kinds of
 chroot-environments:
-- Ubuntu 14.04 (trusty)
-- Ubuntu 12.04 (precise), with the 'universe' component enabled
+- Debian 9 (stretch) as of september 1, 2016
 - Debian 8 (jessie)
 - Debian 7 (wheezy)
+- Ubuntu 16.04 LTS (xenial)
+- Ubuntu 14.04 LTS (trusty)
 Their binary architecture must be either i386 or amd64.
 EOF
 }
