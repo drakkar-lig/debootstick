@@ -509,10 +509,9 @@ quiet_grub_install()
 
     update_grup_device_map $device
 
-    # grub-install & update-grub print
-    # messages to standard error stream
-    # although most of these are just
-    # informational. Let's discard them.
+    # grub-install & update-grub print messages to standard
+    # error stream although most of these are just
+    # informational (or minor bugs). Let's discard them.
     {
         grub-install $device    && \
         update-initramfs -u
@@ -523,6 +522,7 @@ quiet_grub_install()
                 happy_grep -v "Generating"        | \
                 happy_grep -v "Found .* image:"   | \
                 happy_grep -v "lvmetad"           | \
+                happy_grep -v "etc.modprobe.d"    | \
                 happy_grep -v "^done$" 1>&2
 
     # the return value we want is the one we stored
@@ -737,6 +737,20 @@ list_available_packages()
     apt-cache search "$1" | awk '{print $1}'
 }
 
+# with some OS versions, package installation
+# causes many things to be printed to stderr. Some of those things
+# are just informational, others are very minor warnings.
+# we will silence them with grep.
+INSTALL_GREP_PATTERN="$(cat << EOF | tr -d '\n'
+(delaying package configuration)|(Done.)|(^Moving old)|(^Running)|
+(^update-initramfs: deferring)|(^Examining)|(^run-parts: executing)|
+(^update-initramfs: Generating)|(^initrd.img)|(points to)|
+(doing nothing)|(^vmlinu)|(connect to Upstart)|(policy-rc.d denied)|
+(Creating config)|(^$)|(start and stop actions)|(^Created symlink)|
+(Initializing machine ID)|(:$)|(etc.modprobe.d)
+EOF
+)"
+
 install_packages()
 {
     packages=$*
@@ -749,10 +763,9 @@ install_packages()
     echo exit 101 > /usr/sbin/policy-rc.d
     chmod +x /usr/sbin/policy-rc.d
 
-    # we ignore the usual warning about the delayed
-    # package configuration
-    apt-get -qq --no-install-recommends install $packages 2>&1 >/dev/null | \
-        happy_grep -v "delaying package configuration" 1>&2
+    apt-get -qq --no-install-recommends -o=Dpkg::Use-Pty=0 \
+		install $packages 2>&1 >/dev/null | \
+        happy_grep -vE "$INSTALL_GREP_PATTERN" 1>&2
 
     # restore policy-rc.d conf
     if [ -e /usr/sbin/policy-rc.d.saved ]
