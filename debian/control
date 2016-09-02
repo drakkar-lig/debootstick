@@ -3,7 +3,7 @@ Section: admin
 Priority: extra
 Maintainer: Etienne Dublé <etienne.duble@gmail.com>
 Build-Depends: debhelper (>= 9)
-Standards-Version: 3.9.6
+Standards-Version: 3.9.8
 Homepage: http://drakkar-lig.github.io/debootstick
 Vcs-Git: git://github.com/drakkar-lig/debootstick
 Vcs-Browser: https://github.com/drakkar-lig/debootstick
