@@ -1,0 +1,8 @@
+# lintian false-positive:
+# in scripts/create-image/functions, we define a shell alias for
+# the keyword 'with'. This allows the following constructs:
+# "with <rollback-able-cmd>; do <things>; done;" 
+# (similar to python's with statements)
+# debootstick uses such a contruct to rollback the
+# host system to a sane state if an unexpected issue occurs.
+debootstick: shell-script-fails-syntax-check usr/sbin/debootstick
