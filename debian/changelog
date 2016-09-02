@@ -1,3 +1,14 @@
+debootstick (1.1) unstable; urgency=medium
+
+  * Support Debian Stretch (as of september 1, 2016) chroot environments.
+  * Support Debian Stretch as host.
+  * Support Ubuntu 16.04 chroot environments.
+  * Update support for Ubuntu 14.04, Debian Wheezy and Jessie.
+  * Drop support for Ubuntu 12.04.
+  * Minor improvements and bugfixes.
+
+ -- Etienne Dublé <etienne.duble@gmail.com>  Thu, 1 Sep 2016 13:13:52 +0000
+
 debootstick (1.0) unstable; urgency=medium
 
   * New option to generate installer images.
