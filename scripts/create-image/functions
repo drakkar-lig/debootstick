@@ -1,4 +1,4 @@
-#!/bin/sh
+# vim: filetype=sh
 
 # The functions in this file are grouped in the following sections:
 # - basic routines
