@@ -1,3 +1,9 @@
+debootstick (1.2) unstable; urgency=medium
+
+  * Support Debian Stretch (as of october 31, 2016) chroot environments.
+
+ -- Etienne Dublé <etienne.duble@gmail.com>  Mon, 31 Oct 2016 11:25:33 +0000
+
 debootstick (1.1) unstable; urgency=medium
 
   * Support Debian Stretch (as of september 1, 2016) chroot environments.
