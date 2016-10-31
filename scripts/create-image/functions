@@ -244,7 +244,7 @@ finalize_fs()
     # move the existing init
     mv sbin/init sbin/init.orig
     cd sbin
-    ln -s ../opt/debootstick/live/init/first-init.sh init
+    ln -s /opt/debootstick/live/init/first-init.sh init
 }
 
 # failsafe mode handling
