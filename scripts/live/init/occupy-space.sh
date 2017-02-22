@@ -35,10 +35,13 @@ echo "** Extending disk space..."
         echo MSG extending the lvm volume group...
         vgextend $LVM_VG ${device}4
     fi
-    echo MSG resizing lvm logical volume...
-    lvextend -l+100%FREE /dev/$LVM_VG/ROOT
-    echo MSG resizing filesystem...
-    resize2fs /dev/$LVM_VG/ROOT
+
+    if [ "x$(vgs -o vg_free --noheadings --nosuffix $LVM_VG | tr -d [:blank:])" != "x0" ]; then
+       echo MSG resizing lvm logical volume...
+       lvextend -l+100%FREE /dev/$LVM_VG/ROOT
+       echo MSG resizing filesystem...
+       resize2fs /dev/$LVM_VG/ROOT
+    fi
 
     echo RETURN 0
 } | filter_quiet
