@@ -513,21 +513,22 @@ quiet_grub_install()
     # grub-install & update-grub print messages to standard
     # error stream although most of these are just
     # informational (or minor bugs). Let's discard them.
-    {
-        grub-install $device    && \
-        update-initramfs -u
-        update-grub
-        return_code=$?
-    } 2>&1 |    happy_grep -v "No error"          | \
-                happy_grep -v "Installing"        | \
-                happy_grep -v "Generating"        | \
-                happy_grep -v "Found .* image:"   | \
-                happy_grep -v "lvmetad"           | \
-                happy_grep -v "etc.modprobe.d"    | \
-                happy_grep -v "^done$" 1>&2
+    output="$(
+        grub-install $device 2>&1   && \
+        update-initramfs -u 2>&1    && \
+        update-grub 2>&1
+    )" || return_code=$?
 
-    # the return value we want is the one we stored
-    # earlier:
+    echo "$output" |    happy_grep -v "No error"          | \
+                        happy_grep -v "Installing"        | \
+                        happy_grep -v "Generating"        | \
+                        happy_grep -v "Found .* image:"   | \
+                        happy_grep -v "lvmetad"           | \
+                        happy_grep -v "etc.modprobe.d"    | \
+                        happy_grep -v "^done$" 1>&2
+
+    # the return value we want is the one we caught
+    # earlier (or none if all went well):
     return $return_code
 }
 
