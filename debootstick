@@ -26,6 +26,7 @@ root_password_on_first_boot=0
 config_grub_on_serial_line=0
 system_type="live"
 kernel_bootargs=""
+kernel_strip_quiet_from_cmdline=0
 config_hostname=""
 while [ $# != 0 ] 
 do
@@ -48,6 +49,10 @@ do
         --config-kernel-bootargs)
             kernel_bootargs="$2"
             shift 2
+        ;;
+        --config-kernel-strip-quiet-from-cmdline)
+            kernel_strip_quiet_from_cmdline=1
+            shift
         ;;
         --config-root-password-ask)
             root_password_request="ASK"
@@ -221,6 +226,7 @@ with mount -o bind /etc/resolv.conf $PWD/etc/resolv.conf; do
                 config_grub_on_serial_line=$config_grub_on_serial_line  \
                 kernel_package="\"$kernel_package\""    \
                 kernel_bootargs="\"$kernel_bootargs\"" \
+                kernel_strip_quiet_from_cmdline="\"$kernel_strip_quiet_from_cmdline\"" \
                 config_hostname="\"$config_hostname\"" \
                 target_arch="$target_arch"
 done

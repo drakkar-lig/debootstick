@@ -69,6 +69,9 @@ Specify the hostname the embedded system will have.
 Specify boot arguments to be added to the kernel. (You may specify several arguments, e.g.
 \fB\-\-config\-kernel\-bootargs \(dqconsole=ttyS0 acpi=off\(dq\fP.)
 .TP
+.B \-\-config\-kernel\-strip\-quiet\-from\-cmdline
+Removes the "quiet" option from kernel cmdline parameters if present.
+.TP
 .B \-\-config\-root\-password\-ask
 Prompt for the root password of the embedded system and set it accordingly.
 .TP

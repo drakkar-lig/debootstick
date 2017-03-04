@@ -114,6 +114,12 @@ sed -i -e "s/GRUB_CMDLINE_LINUX=.*/GRUB_CMDLINE_LINUX=\"$GRUB_CMDLINE_LINUX\"/" 
        -e "s/^GRUB_HIDDEN/#GRUB_HIDDEN/g" \
         /etc/default/grub
 
+# remove the "quiet" option from kernel boot cmdline
+# if instructed by kernel_strip_quiet_from_cmdline=1.
+if [ "x${kernel_strip_quiet_from_cmdline}" = "x1" ]; then
+   sed -i -e '/^GRUB_CMDLINE_LINUX/s/\s*quiet//g' ./etc/default/grub
+fi
+
 # for text console in kvm
 if [ "$debug" = "1" ]
 then
