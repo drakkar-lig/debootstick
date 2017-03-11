@@ -27,63 +27,74 @@ config_grub_on_serial_line=0
 system_type="live"
 kernel_bootargs=""
 config_hostname=""
-while [ $# != 0 ] 
-do
-    case "$1" in
-        -h|--help)
-            usage_and_exit 0
-        ;;
-        --help-os-support)
-            describe_os_support
-            exit 0
-        ;;
-        -v|--version)
-            echo "debootstick $VERSION"
-            exit 0
-        ;;
-        --kernel-package)
-            kernel_package="$2"
-            shift 2
-        ;;
-        --config-kernel-bootargs)
-            kernel_bootargs="$2"
-            shift 2
-        ;;
-        --config-root-password-ask)
-            root_password_request="ASK"
-            shift
-        ;;
-        --config-root-password-none)
-            root_password_request="NO_PASSWORD"
-            shift
-        ;;
-        --config-root-password-first-boot)
-            root_password_on_first_boot=1
-            shift
-        ;;
-        --config-hostname)
-            config_hostname="$2"
-            shift 2
-        ;;
-        --config-grub-on-serial-line)
-            config_grub_on_serial_line=1
-            shift
-        ;;
-        --system-type)
-            system_type="$2"
-            shift 2
-        ;;
-        *)
-            break
-        ;;
-    esac
-done
+chroot_in=""
+image_out=""
 
-# we need 2 args
-if [ -z "$2" ]
-then
-    usage_and_exit 1
-fi
+parse_args()
+{
+    while [ $# != 0 ]
+    do
+        case "$1" in
+            -h|--help)
+                usage_and_exit 0
+            ;;
+            --help-os-support)
+                describe_os_support
+                exit 0
+            ;;
+            -v|--version)
+                echo "debootstick $VERSION"
+                exit 0
+            ;;
+            --kernel-package)
+                kernel_package="$2"
+                shift 2
+            ;;
+            --config-kernel-bootargs)
+                kernel_bootargs="$2"
+                shift 2
+            ;;
+            --config-root-password-ask)
+                root_password_request="ASK"
+                shift
+            ;;
+            --config-root-password-none)
+                root_password_request="NO_PASSWORD"
+                shift
+            ;;
+            --config-root-password-first-boot)
+                root_password_on_first_boot=1
+                shift
+            ;;
+            --config-hostname)
+                config_hostname="$2"
+                shift 2
+            ;;
+            --config-grub-on-serial-line)
+                config_grub_on_serial_line=1
+                shift
+            ;;
+            --system-type)
+                system_type="$2"
+                shift 2
+            ;;
+            *)
+                break
+            ;;
+        esac
+    done
+
+    # we need 2 more args
+    if [ -z "$2" ]
+    then
+        usage_and_exit 1
+    fi
+
+    chroot_in="$1"
+    image_out="$2"
+}
+
+parse_args "$@"
 
 # let's verify system_type variable
 case "$system_type" in
@@ -100,24 +111,24 @@ if [ $(id -u) -ne 0 ]; then
     exec sudo "$0" "$@"
 fi
 
-# 2nd arg is a writable file path
-if [ ! -w $(dirname "$2") ] 
+# check that $image_out is a writable file path
+if [ ! -w $(dirname "$image_out") ]
 then
     usage_and_exit
 fi
 
-# 1st arg is a directory
-if [ ! -d "$1" ]
+# $chroot_in should be a directory
+if [ ! -d "$chroot_in" ]
 then
     usage_and_exit
 fi
 
 # this directory should contain a system 
 # file hierarchy
-check_fs_hierarchy "$1" || usage_and_exit
+check_fs_hierarchy "$chroot_in" || usage_and_exit
 
 # get and verify target architecture
-target_arch=$(check_target_arch "$1")
+target_arch=$(check_target_arch "$chroot_in")
 
 # if we are here, command line is ok :)
 if [ "$root_password_request" = "ASK" ]
@@ -139,13 +150,13 @@ then
     done
 fi
 
-ORIG_TREE="$(cd "$1"; pwd)"
+ORIG_TREE="$(cd "$chroot_in"; pwd)"
 STICK_OS_ID=$(uuidgen | tr -d '-')
 FINAL_LVM_VG="DBSTCK-$STICK_OS_ID"
 DRAFT_LVM_VG="DRAFT-$STICK_OS_ID"
 DBSTCK_TMPDIR=$(mktemp -du --tmpdir tmp.dbstck.XXXXX.d)
-final_image_path="$2"
-final_image_abspath="$(abspath "$2")"
+final_image_path="$image_out"
+final_image_abspath="$(abspath "$image_out")"
 if [ "$DEBUG" = "1" ]
 then
     CHROOTED_DEBUG="--debug"
