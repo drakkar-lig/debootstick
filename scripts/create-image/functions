@@ -2,6 +2,7 @@
 
 # The functions in this file are grouped in the following sections:
 # - basic routines
+# - grub configuration
 # - failsafe mode handling
 # - verbosity reduction
 # - partitioning and formatting
@@ -145,18 +146,6 @@ ff02::2 ip6-allrouters
 EOF
 }
 
-# let grub find our virtual device
-update_grup_device_map()
-{
-    loop_device=$1
-    cd /
-    mkdir -p boot/grub
-    cat > boot/grub/device.map << END_MAP
-(hd0) $loop_device
-END_MAP
-    cd - >/dev/null
-}
-
 # grep returns non-zero if no line is found.
 # in some cases, having no line is expected
 # (e.g. in the case of error lines)
@@ -245,6 +234,71 @@ finalize_fs()
     mv sbin/init sbin/init.orig
     cd sbin
     ln -s /opt/debootstick/live/init/first-init.sh init
+}
+
+# grub configuration
+# ------------------
+
+# let grub find our virtual device
+update_grup_device_map()
+{
+    loop_device=$1
+    cd /
+    mkdir -p boot/grub
+    cat > boot/grub/device.map << END_MAP
+(hd0) $loop_device
+END_MAP
+    cd - >/dev/null
+}
+
+add_bootarg()
+{
+    GRUB_CMDLINE_LINUX="$GRUB_CMDLINE_LINUX $1"
+}
+
+del_bootarg()
+{
+    GRUB_CMDLINE_LINUX="$(echo "$GRUB_CMDLINE_LINUX" | sed -e "s/\b$1\b//g")"
+    GRUB_CMDLINE_LINUX_DEFAULT="$(echo "$GRUB_CMDLINE_LINUX_DEFAULT" | sed -e "s/\b$1\b//g")"
+}
+
+# * customize boot parameters
+# * fix obsolete options in /etc/default/grub
+#   (https://bugs.launchpad.net/ubuntu/+source/grub2/+bug/1258597)
+update_grub_conf()
+{
+    . /etc/default/grub
+    GRUB_CMDLINE_LINUX="$GRUB_CMDLINE_LINUX rootdelay=3"
+
+    for bootarg in "$@"
+    do
+        bootargmod="$(echo "$bootarg" | cut -c2-)"
+        case "$bootarg" in
+            +*)
+                add_bootarg "$bootargmod"
+                ;;
+            -*)
+                del_bootarg "$bootargmod"
+                ;;
+            *)
+                add_bootarg "$bootarg"
+                ;;
+        esac
+    done
+
+    sed -i -e "s/GRUB_CMDLINE_LINUX=.*/GRUB_CMDLINE_LINUX=\"$GRUB_CMDLINE_LINUX\"/" \
+           -e "s/GRUB_CMDLINE_LINUX_DEFAULT=.*/GRUB_CMDLINE_LINUX_DEFAULT=\"$GRUB_CMDLINE_LINUX_DEFAULT\"/" \
+           -e "s/^GRUB_HIDDEN/#GRUB_HIDDEN/g" \
+            /etc/default/grub
+}
+
+# display the grub interface on serial line
+update_grub_conf_serial_line()
+{
+    cat >> ./etc/default/grub << EOF
+GRUB_TERMINAL=serial
+GRUB_SERIAL_COMMAND="serial --speed=115200 --unit=0 --word=8 --parity=no --stop=1"
+EOF
 }
 
 # failsafe mode handling

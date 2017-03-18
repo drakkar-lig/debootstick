@@ -66,8 +66,12 @@ will install a common one (depending on the embedded distribution).
 Specify the hostname the embedded system will have.
 .TP
 .B \-\-config\-kernel\-bootargs BOOTARGS
-Specify boot arguments to be added to the kernel. (You may specify several arguments, e.g.
-\fB\-\-config\-kernel\-bootargs \(dqconsole=ttyS0 acpi=off\(dq\fP.)
+Specify boot arguments to be added/removed from the kernel cmdline.
+Use a plus sign to get a bootarg added and a minus sign to have it removed from the
+existing grub configuration.
+For example, \fB\-\-config\-kernel\-bootargs \(dq+console=ttyS0 +acpi=off -quiet\(dq\fP
+will add \fBconsole=ttyS0 acpi=off\fP to the kernel cmdline, and remove parameter \fBquiet\fP.
+When no plus or minus sign is specified, the bootarg is added (like plus).
 .TP
 .B \-\-config\-root\-password\-ask
 Prompt for the root password of the embedded system and set it accordingly.

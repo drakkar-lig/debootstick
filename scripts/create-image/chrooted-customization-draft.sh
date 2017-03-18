@@ -94,25 +94,12 @@ rm -rf /var/lib/apt/lists/*
 # tune LVM config
 tune_lvm
 
+# tune grub conf
+update_grub_conf $kernel_bootargs
 if [ "$config_grub_on_serial_line" -gt 0 ]
 then
-    # display the grub interface on serial line
-    cat >> ./etc/default/grub << EOF
-GRUB_TERMINAL=serial
-GRUB_SERIAL_COMMAND="serial --speed=115200 --unit=0 --word=8 --parity=no --stop=1"
-EOF
+    update_grub_conf_serial_line
 fi
-
-# grub conf:
-# * add our custom boot parameters
-# * fix obsolete options in /etc/default/grub
-#   (https://bugs.launchpad.net/ubuntu/+source/grub2/+bug/1258597)
-. /etc/default/grub
-LINUX_OPTIONS="rootdelay=3 $kernel_bootargs"
-GRUB_CMDLINE_LINUX="$GRUB_CMDLINE_LINUX $LINUX_OPTIONS"
-sed -i -e "s/GRUB_CMDLINE_LINUX=.*/GRUB_CMDLINE_LINUX=\"$GRUB_CMDLINE_LINUX\"/" \
-       -e "s/^GRUB_HIDDEN/#GRUB_HIDDEN/g" \
-        /etc/default/grub
 
 # for text console in kvm
 if [ "$debug" = "1" ]
