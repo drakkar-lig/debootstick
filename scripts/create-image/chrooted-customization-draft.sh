@@ -104,14 +104,18 @@ fi
 # for text console in kvm
 if [ "$debug" = "1" ]
 then
-    # start a shell when the system is ready
-    cat > ./etc/init/ttyS0.conf << EOF
+    # if OS init is upstart, create a service
+    # in order to start a shell when the system is ready
+    if [ -f '/sbin/upstart' ]
+    then
+        cat > ./etc/init/ttyS0.conf << EOF
 start on stopped rc or RUNLEVEL=[12345]
 stop on runlevel [!12345]
 
 respawn
 exec /sbin/getty -L 115200 ttyS0 xterm
 EOF
+    fi
 fi
 
 # set the root password if requested
