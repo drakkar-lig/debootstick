@@ -1,3 +1,9 @@
+debootstick (1.3) unstable; urgency=medium
+
+  * Add dependency on e2fsprogs (closes: Bug#887209).
+
+ -- Etienne Dublé <etienne.duble@gmail.com>  Wed, 31 Jan 2018 16:35:13 +0000
+
 debootstick (1.2) unstable; urgency=medium
 
   * Support Debian Stretch (as of october 31, 2016) chroot environments.

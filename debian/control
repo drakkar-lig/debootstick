@@ -11,7 +11,7 @@ Vcs-Browser: https://github.com/drakkar-lig/debootstick
 Package: debootstick
 Architecture: amd64 i386
 Depends: ${misc:Depends}, lvm2, kpartx, grub-efi-amd64-bin,
- grub-efi-ia32-bin, uuid-runtime, gdisk, dosfstools
+ grub-efi-ia32-bin, uuid-runtime, gdisk, dosfstools, e2fsprogs
 Suggests: debootstrap, kvm
 Description: Turn a chroot environment into a bootable image
  debootstick is used to generate a bootable image from a Debian

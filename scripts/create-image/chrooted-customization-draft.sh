@@ -1,5 +1,5 @@
 #!/bin/sh
-OTHER_PACKAGES="lvm2 gdisk grub-pc"
+OTHER_PACKAGES="lvm2 gdisk grub-pc e2fsprogs"
 eval "$chrooted_functions"
 start_failsafe_mode
 # in the chroot commands should use /tmp for temporary files
