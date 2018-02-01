@@ -23,7 +23,8 @@ describe_os_support()
     cat << EOF
 This version of debootstick was tested successfully with the following kinds of
 chroot-environments:
-- Debian 9 (stretch) as of september 1, 2016
+- Debian 10 (buster) as of january 31, 2018
+- Debian 9 (stretch)
 - Debian 8 (jessie)
 - Debian 7 (wheezy)
 - Ubuntu 16.04 LTS (xenial)
