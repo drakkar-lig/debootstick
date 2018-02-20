@@ -14,11 +14,9 @@ DEBUG=0
 DD="dd status=none"
 DBSTCK_DIR="/usr/share/debootstick"
 
-# get functions now
-. $DBSTCK_DIR/scripts/create-image/functions
-# and have them available in chrooted scripts
-export chrooted_functions="$(
-    cat $DBSTCK_DIR/scripts/create-image/functions)"
+# get cmdline parsing and os-detection functions
+. $DBSTCK_DIR/scripts/create-image/cmdline
+. $DBSTCK_DIR/scripts/create-image/os-detect
 
 # check options
 root_password_request="NO_REQUEST"
@@ -150,6 +148,15 @@ then
     done
 fi
 
+# get common and arch-specific functions
+functions="$(
+    cat $DBSTCK_DIR/scripts/create-image/common/* \
+        $DBSTCK_DIR/scripts/create-image/arch/pc/*)"
+
+# have them available here and in chrooted scripts
+eval "$functions"
+export chrooted_functions="$functions"
+
 ORIG_TREE="$(cd "$chroot_in"; pwd)"
 STICK_OS_ID=$(uuidgen | tr -d '-')
 FINAL_LVM_VG="DBSTCK-$STICK_OS_ID"
@@ -219,7 +226,8 @@ cd $draft_lvroot_mountpoint
 cp -a $ORIG_TREE/* .
 echo done
 mkdir -p opt/debootstick
-cp -a $DBSTCK_DIR/scripts/live opt/debootstick/live
+cp -a $DBSTCK_DIR/scripts/live/common opt/debootstick/live
+cp -a $DBSTCK_DIR/scripts/live/arch/pc/* opt/debootstick/live/
 cp -a $DBSTCK_DIR/scripts/create-image/chrooted-customization-draft.sh .
 # we will need internet connectivity for package 
 # management in the chroot. Ensure we have a valid DNS setup there.

@@ -1,0 +1,16 @@
+# vim: filetype=sh
+
+finalize_fs()
+{
+    fs_tree="$(cd "$1"; pwd)"
+    cd "$fs_tree"
+
+    # clean up
+    rm -rf proc/* sys/* dev/* tmp/* \
+            $(find run -type f) var/cache/* var/lock
+
+    # move the existing init
+    mv sbin/init sbin/init.orig
+    cd sbin
+    ln -s /opt/debootstick/live/init/first-init.sh init
+}

@@ -1,0 +1,110 @@
+# vim: filetype=sh
+
+# basic routines
+# --------------
+missing_or_empty()
+{
+    f="$1"
+    if [ ! -e "$f" ]
+    then
+        echo 1
+        return
+    else
+        if [ "$(cat "$f" | wc -l)" -eq 0 ]
+        then
+            echo 1
+            return
+        fi
+    fi
+    echo 0
+}
+
+abspath()
+{
+    echo "$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
+}
+
+print_last_word()
+{
+    awk '{print $NF}'
+}
+
+# divide %1/%2 rounding up
+ceil()
+{
+    divide=$1
+    by=$2
+    echo $(((divide+by-1)/by))
+}
+
+estimated_size_xb()
+{
+    du -s$1 "$2" | awk '{print $1}'
+}
+
+estimated_size_kb()
+{
+    estimated_size_xb k "$1"
+}
+
+estimated_size_mb()
+{
+    estimated_size_xb m "$1"
+}
+
+real_size_human_readable()
+{
+    du -sh --apparent-size "$1" | awk '{print $1}'
+}
+
+device_size_kb()
+{
+    echo $((
+        $(blockdev --getsz $1) /2
+    ))
+}
+
+# grep returns non-zero if no line is found.
+# in some cases, having no line is expected
+# (e.g. in the case of error lines)
+# thus the or-true construct.
+happy_grep()
+{
+    grep "$@" || true
+}
+
+# get total size needed taking into account
+# an overhead.
+# $1: the initial size (not taking the overhead into account)
+# $2: percent of overhead
+# return value: the size needed (such that applying the
+#               overhead would get $1 again)
+apply_overhead_percent()
+{
+    echo $((($1)*100/(100-($2))))
+}
+
+# apply several overheads
+apply_overheads_percent()
+{
+    size=$1; shift
+    while [ ! -z "$1" ]
+    do
+        size=$(apply_overhead_percent $size "$1")
+        shift
+    done
+    echo $size
+}
+
+quiet()
+{
+    $* >/dev/null
+}
+
+wait_for_device()
+{
+	while [ ! -e "$1" ]
+	do
+		sleep 0.1
+	done
+}

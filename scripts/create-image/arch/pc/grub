@@ -1,0 +1,127 @@
+# vim: filetype=sh
+
+# grub configuration
+# ------------------
+
+# let grub find our virtual device
+update_grup_device_map()
+{
+    loop_device=$1
+    cd /
+    mkdir -p boot/grub
+    cat > boot/grub/device.map << END_MAP
+(hd0) $loop_device
+END_MAP
+    cd - >/dev/null
+}
+
+add_bootarg()
+{
+    GRUB_CMDLINE_LINUX="$GRUB_CMDLINE_LINUX $1"
+}
+
+del_bootarg()
+{
+    GRUB_CMDLINE_LINUX="$(echo "$GRUB_CMDLINE_LINUX" | sed -e "s/\b$1\b//g")"
+    GRUB_CMDLINE_LINUX_DEFAULT="$(echo "$GRUB_CMDLINE_LINUX_DEFAULT" | sed -e "s/\b$1\b//g")"
+}
+
+# * customize boot parameters
+# * fix obsolete options in /etc/default/grub
+#   (https://bugs.launchpad.net/ubuntu/+source/grub2/+bug/1258597)
+update_grub_conf()
+{
+    . /etc/default/grub
+    GRUB_CMDLINE_LINUX="$GRUB_CMDLINE_LINUX rootdelay=3"
+
+    for bootarg in "$@"
+    do
+        bootargmod="$(echo "$bootarg" | cut -c2-)"
+        case "$bootarg" in
+            +*)
+                add_bootarg "$bootargmod"
+                ;;
+            -*)
+                del_bootarg "$bootargmod"
+                ;;
+            *)
+                add_bootarg "$bootarg"
+                ;;
+        esac
+    done
+
+    sed -i -e "s/GRUB_CMDLINE_LINUX=.*/GRUB_CMDLINE_LINUX=\"$GRUB_CMDLINE_LINUX\"/" \
+           -e "s/GRUB_CMDLINE_LINUX_DEFAULT=.*/GRUB_CMDLINE_LINUX_DEFAULT=\"$GRUB_CMDLINE_LINUX_DEFAULT\"/" \
+           -e "s/^GRUB_HIDDEN/#GRUB_HIDDEN/g" \
+            /etc/default/grub
+}
+
+# display the grub interface on serial line
+update_grub_conf_serial_line()
+{
+    cat >> ./etc/default/grub << EOF
+GRUB_TERMINAL=serial
+GRUB_SERIAL_COMMAND="serial --speed=115200 --unit=0 --word=8 --parity=no --stop=1"
+EOF
+}
+
+quiet_grub_install()
+{
+    device=$1
+
+    update_grup_device_map $device
+
+    # grub-install & update-grub print messages to standard
+    # error stream although most of these are just
+    # informational (or minor bugs). Let's discard them.
+    output="$(
+        grub-install $device 2>&1   && \
+        update-initramfs -u 2>&1    && \
+        update-grub 2>&1
+    )" || return_code=$?
+
+    echo "$output" |    happy_grep -v "No error"          | \
+                        happy_grep -v "Installing"        | \
+                        happy_grep -v "Generating"        | \
+                        happy_grep -v "Found .* image:"   | \
+                        happy_grep -v "lvmetad"           | \
+                        happy_grep -v "etc.modprobe.d"    | \
+                        happy_grep -v "^done$" 1>&2
+
+    # the return value we want is the one we caught
+    # earlier (or none if all went well):
+    return $return_code
+}
+
+# UEFI support
+# ------------
+
+# we generate a standalone UEFI binary, used
+# for booting on UEFI systems.
+# actually, since we cannot install both grub-pc
+# and grub-efi on the embedded system (conflict),
+# we install grub-pc only. However, this binary
+# image just look for the configuration file generated
+# by the grub-pc installation and loads it. Thus
+# this UEFI configuration also stays up-to-date.
+build_uefi_binary_image()
+{
+    grub_arch="$1"
+    img_name="$2"
+    out_binary_path="$(abspath "$img_name")"
+    mkdir -p $DBSTCK_TMPDIR/efi/boot/grub
+    cd $DBSTCK_TMPDIR/efi
+    cat > boot/grub/grub.cfg << EOF
+insmod part_gpt
+insmod lvm
+insmod efi_gop
+insmod efi_uga
+search --set rootfs --label ROOT
+configfile (\$rootfs)/boot/grub/grub.cfg
+EOF
+    grub-mkstandalone \
+            --directory="/usr/lib/grub/$grub_arch/" --format="$grub_arch"   \
+            --compress="gz" --output="$out_binary_path"            \
+            "boot/grub/grub.cfg"
+    cd - >/dev/null # return to previous dir
+}

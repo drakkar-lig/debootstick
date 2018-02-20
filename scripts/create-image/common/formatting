@@ -1,0 +1,42 @@
+# vim: filetype=sh
+
+# partitioning and formatting
+# ---------------------------
+
+# Selection of ext4 features:
+# We must select only features available on the *oldest* system
+# version we want to support. We can get these features by
+# creating a sample filesystem on such a system:
+
+# $ cd /tmp
+# $ dd of=test.ext4 bs=1G count=0 seek=50
+# $ mkfs.ext4 -F -q -L ROOT -T default -m 2 test.ext4
+# $ dumpe2fs test.ext4 | grep features
+
+# Note about the '-T default' option:
+# We try to create a USB stick as small as possible.
+# However, the embedded system may later by copied on a
+# potentially large disk.
+# Therefore, we specify the option '-T default' to mkfs.ext4.
+# This allows to select 'default' ext4 features even if the
+# filesystem might be considered 'small' at first.
+# This may seem cosmetic but it's not: if initialized with
+# '-T small' (or with no -T option and run on a small disk),
+# when we move to a large disk, resize2fs apparently
+# enables the 'meta_bg' option (supposedly trying to adapt as much
+# as possible this 'small' filesystem to a much larger device).
+# Since this option is not handled by grub, it prevents the
+# system from booting properly.
+
+EXT4_FEATURES=$(cat << EOF
+has_journal ext_attr resize_inode dir_index filetype extent
+flex_bg sparse_super large_file huge_file uninit_bg dir_nlink
+extra_isize
+EOF
+)
+
+make_root_fs()
+{
+    features="$(echo $EXT4_FEATURES | tr ' ' ',')"
+    mkfs.ext4 -F -q -L ROOT -O "none,$features" -m 2 $1
+}

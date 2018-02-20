@@ -1,0 +1,53 @@
+# vim: filetype=sh
+
+# Package management
+# ------------------
+package_is_installed()
+{
+    dpkg-query -W --showformat='${Status}\n' \
+                    $1 2>/dev/null | happy_grep -c "^i"
+}
+
+list_available_packages()
+{
+    apt-cache search "$1" | awk '{print $1}'
+}
+
+# with some OS versions, package installation
+# causes many things to be printed to stderr. Some of those things
+# are just informational, others are very minor warnings.
+# we will silence them with grep.
+INSTALL_GREP_PATTERN="$(cat << EOF | tr -d '\n'
+(delaying package configuration)|(Done.)|(^Moving old)|(^Running)|
+(^update-initramfs: deferring)|(^Examining)|(^run-parts: executing)|
+(^update-initramfs: Generating)|(^initrd.img)|(points to)|
+(doing nothing)|(^vmlinu)|(connect to Upstart)|(policy-rc.d denied)|
+(Creating config)|(^$)|(start and stop actions)|(^Created symlink)|
+(Initializing machine ID)|(:$)|(etc.modprobe.d)
+EOF
+)"
+
+install_packages()
+{
+    packages=$*
+
+    # disable service startup at package installation
+    if [ -e /usr/sbin/policy-rc.d ]
+    then
+	mv /usr/sbin/policy-rc.d /usr/sbin/policy-rc.d.saved
+    fi
+    echo exit 101 > /usr/sbin/policy-rc.d
+    chmod +x /usr/sbin/policy-rc.d
+
+    apt-get -qq --no-install-recommends -o=Dpkg::Use-Pty=0 \
+		install $packages 2>&1 >/dev/null | \
+        happy_grep -vE "$INSTALL_GREP_PATTERN" 1>&2
+
+    # restore policy-rc.d conf
+    if [ -e /usr/sbin/policy-rc.d.saved ]
+    then
+	mv /usr/sbin/policy-rc.d.saved /usr/sbin/policy-rc.d
+    else
+        rm /usr/sbin/policy-rc.d
+    fi
+}

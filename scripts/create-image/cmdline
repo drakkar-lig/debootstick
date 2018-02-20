@@ -1,0 +1,22 @@
+# vim: filetype=sh
+
+usage_and_exit()
+{
+    echo "Usage: debootstick [options] <fs_tree_dir> <out_image_path>" >&2
+    exit $1
+}
+
+describe_os_support()
+{
+    cat << EOF
+This version of debootstick was tested successfully with the following kinds of
+chroot-environments:
+- Debian 10 (buster) as of january 31, 2018
+- Debian 9 (stretch)
+- Debian 8 (jessie)
+- Debian 7 (wheezy)
+- Ubuntu 16.04 LTS (xenial)
+- Ubuntu 14.04 LTS (trusty)
+Their binary architecture must be either i386 or amd64.
+EOF
+}

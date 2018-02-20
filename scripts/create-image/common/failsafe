@@ -1,0 +1,255 @@
+# vim: filetype=sh
+
+# failsafe mode handling
+# ----------------------
+# we want to leave the system in a clean state,
+# whatever happens.
+# for example, if a "disk full" error happens
+# in the middle of the chrooted-customization
+# step, we should be able to umount what have
+# been mounted in the chroot, exit the chroot,
+# umount things and remove peripherals created
+# by debootstick outside the chroot, before
+# exiting.
+# we handle this by trapping the EXIT
+# of the scripts. Also, each command creating
+# a persistent artefact (mounts, devices, etc.)
+# is recorded, in order to be able to 'undo the
+# command' (i.e. remove the artefacts) if needed.
+
+undo_all()
+{
+    # run saved failsafe commands prefixed with 'undo_'
+    eval "$(echo -n "$failsafe_commands" | \
+            awk '{print "undo_" $0}')"
+
+    # flush variable 'failsafe_commands'
+    failsafe_commands=""
+}
+
+on_sigint()
+{
+    trap - INT EXIT
+    on_exit --from-signal $*
+    kill -INT $$
+}
+
+on_exit()
+{   # save exit code
+    res=$?
+
+    # get args
+    toplevel=0
+    fromsignal=0
+    if [ "$1" = "--from-signal" ]
+    then
+        fromsignal=1
+        shift
+    fi
+    if [ "$1" = "--toplevel" ]
+    then
+        toplevel=1
+        shift
+    fi
+    cleanup_function=$1
+
+    warn_unexpected_issue=0
+    if [ $toplevel -eq 1 ]
+    then
+        if [ $fromsignal -eq 1 -o $res -gt 0 ]
+        then
+            warn_unexpected_issue=1
+        fi
+    fi
+
+    # undo operations (remove artefacts)
+    if [ $warn_unexpected_issue -eq 1 ]
+    then
+        echo
+        if [ $fromsignal -eq 1 ]
+        then    # signal
+            echo "Interrupted."
+        else    # error
+            echo "E: an error occured."
+            echo "E: did you try 'debootstick --help-os-support'?"
+        fi
+        echo -n "I: restoring a clean state... "
+        undo_all
+        echo "done"
+    else
+        undo_all
+    fi
+
+    # call an additional cleanup function
+    # if provided.
+    if [ ! -z "$cleanup_function" ]
+    then
+        $cleanup_function $res
+    fi
+
+    return $res
+}
+
+start_failsafe_mode()
+{
+    # stop if an error occurs
+    set -e
+    # clean remaining artefacts before exitting
+    trap "on_exit $*" EXIT
+    trap "on_sigint $*" INT
+
+    # allow with constructs (see f_with function)
+    alias with="while f_with"
+
+    # bash does not expand aliases by default,
+    # when running a script.
+    # busybox sh does, and has no such configuration
+    # option (thus the error ignoring construct)
+    shopt -s expand_aliases 2>/dev/null || true
+}
+
+undo_mount_with_prefix()
+{
+    # I know 2 usual things that could cause umount
+    # to fail with an error reporting that 'device is busy'.
+    # Either one process has its current directory on this
+    # mount, or there is cached data that was not yet
+    # written to disk. We handle these below.
+    for last; do true; done # retrieve last arg
+    cd / # just in case we would be on the mountpoint
+    # some say that a sync request is treated asynchronously.
+    # but if a second one comes in, then the first one is
+    # forced. Thus the 2 requests in row:
+    sync; sync
+    $1 umount "$last"
+    # try to return to previous dir if possible
+    cd - >/dev/null 2>&1 || true
+}
+
+undo_mount()
+{
+    undo_mount_with_prefix "" $*
+}
+
+undo_busybox_mount()
+{
+    undo_mount_with_prefix "$busybox_path" $*
+}
+
+undo_mkdir()
+{
+    for last; do true; done # retrieve last arg
+    rm -rf "$last"
+}
+
+undo_losetup()
+{   # we assume the failsafe command was
+    # $ failsafe losetup <loop_device> <file>
+    losetup -d "$1"
+}
+
+undo_kpartx()
+{   # we assume the failsafe command was
+    # $ failsafe kpartx -a <disk_device>
+    disk_device="$2"
+
+    # we have to detach lvm devices associated
+    # to the <disk_device>, then keep the related
+    # partition in a busy state otherwise.
+    # Retrieving these devices is not so easy...
+    partitions=$(kpartx -l $disk_device | \
+                    awk '{ print "/dev/mapper/"$1 }')
+    vg_names=$(pvs -o vg_name --noheadings $partitions 2>/dev/null || true)
+    if [ ! -z "$vg_names" ]
+    then
+        lv_devices=$(lvs -o vg_name,lv_name --noheadings $vg_names | \
+                        awk '{print "/dev/" $1 "/" $2}')
+        for lv_device in $lv_devices
+        do
+            dmsetup remove $lv_device
+        done
+    fi
+
+    # we can now request the kernel to remove
+    # <disk_device> partitions
+    kpartx -d "$disk_device"
+}
+
+undo_chroot()
+{
+    exit
+}
+
+failsafe()
+{
+    $*  &&  \
+    failsafe_commands="$(
+        echo "$*"
+        echo -n "$failsafe_commands"
+    )"
+}
+
+undo()
+{
+    # undo-ing one failsafe operation only
+
+    # we have to remove this operation from
+    # variable 'failsafe_commands'.
+    # first, we escape it in order to use
+    # it in a sed statement below.
+    escaped_cmd="$(
+        echo "$*" | \
+            sed -e 's/[\/&]/\\&/g')"
+    # and now we remove it
+    failsafe_commands="$(
+        echo -n "$failsafe_commands" | \
+            sed -e "/^$escaped_cmd\$/d"
+    )"
+
+    # of course we really undo it
+    eval "undo_$*"
+}
+
+# the function f_with() allows constructs such as:
+#
+# with mount [...]; do
+#   [...]
+# done
+#
+# The unmount-ing will be done at the end of the
+# block regardless of what happens inside (issue raised
+# or not).
+#
+# 'with' is actually an alias involving this function
+# and a while loop:
+# with -> while f_with   (see 'start_failsafe_mode')
+#
+# we ensure that the while loop stops at the 2nd
+# iteration.
+f_with()
+{
+    # save the command
+    cmd=$*
+    # we need an id to recognise this construct
+    with_id=$(echo $cmd | md5sum | awk '{print $1}')
+    # let's load the stack of ids we have
+    set -- $with_ids_stack
+
+    # if this is a new id...
+    if [ "$1" != "$with_id" ]
+    then
+        # this is a new 'with' construct
+        # perform the command requested
+        failsafe $cmd
+        # update the stack
+        with_ids_stack="$with_id $with_ids_stack"
+        return 0    # continue the while loop
+    else
+        # second (and last) time through this 'with' construct
+        # pop this id from the stack
+        shift; with_ids_stack=$*
+        # revert the command
+        undo $cmd
+        return 1    # stop the while loop
+    fi
+}

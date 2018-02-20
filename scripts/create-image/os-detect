@@ -1,0 +1,44 @@
+# vim: filetype=sh
+
+# check that the given directory looks like an OS
+# file structure that we can handle correctly.
+check_fs_hierarchy()
+{
+    fs_tree="$1"
+    ls "$fs_tree/bin/echo" >/dev/null 2>&1 || {
+        echo "E: No /bin/echo found in $1."
+        echo "E: This does not seem to be a chroot environment."
+        return 1
+    }
+    chroot "$fs_tree" echo -n >/dev/null 2>&1 || {
+        echo "E: Unable to execute binaries (/bin/echo at least) in the chroot environment."
+        echo "E: Please verify:"
+        echo "E: - file permissions in the chroot environment"
+        echo "E: - that your host CPU is able to run binaries of the target architecture"
+        echo "E: Run 'debootstick --help-os-support' for info about compatible environments."
+        return 1
+    }
+    chroot "$fs_tree" which apt-get >/dev/null 2>&1 || {
+        echo "E: No apt-get found in $1."
+        echo "E: debootstick cannot handle this kind of chroot environment."
+        echo "E: Run 'debootstick --help-os-support' for more info."
+        return 1
+    }
+}
+
+check_target_arch()
+{
+    fs_tree="$1"
+    arch="$(chroot "$fs_tree" dpkg --print-architecture 2>&1 || true)"
+    case "$arch" in
+    "amd64"|"i386") # ok
+        ;;
+    *)
+        echo "E: Got '$arch' while trying to check the architecture of the chroot environment." >&2
+        echo "E: debootstick currently cannot handle such a chroot environment." >&2
+        echo "E: Run 'debootstick --help-os-support' for more info." >&2
+        return 1
+        ;;
+    esac
+    echo "$arch"
+}

@@ -1,0 +1,29 @@
+# vim: filetype=sh
+
+update_fstab()
+{
+    final_root_device="/dev/$1/ROOT"
+
+    # remove the line with "UNCONFIGURED"
+    # and add or update the line mounting /
+    filtered_content=$(cat /etc/fstab |                 \
+                        happy_grep -vw "UNCONFIGURED" | \
+                        happy_grep -vw "/"
+    )
+    cat > /etc/fstab << EOF
+$final_root_device / ext4 errors=remount-ro 0 1
+$filtered_content
+EOF
+}
+
+generate_hosts_file()
+{
+    cat > /etc/hosts << EOF
+127.0.0.1   localhost
+::1     ip6-localhost ip6-loopback
+fe00::0 ip6-localnet
+ff00::0 ip6-mcastprefix
+ff02::1 ip6-allnodes
+ff02::2 ip6-allrouters
+EOF
+}
