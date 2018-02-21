@@ -1,0 +1,27 @@
+# vim: filetype=sh
+
+# for details about the following functions
+# see 'steps' file
+
+arch_preliminary_steps() {
+    preliminary_steps
+}
+
+arch_final_customization_steps() {
+    final_customization_steps
+}
+
+# for details about the following functions
+# see 'formatting' file
+
+arch_create_formatted_image() {
+    create_formatted_image $@
+}
+
+arch_release_image() {
+    release_image $@
+}
+
+arch_estimated_image_size_kb() {
+    estimated_image_size_kb $@
+}

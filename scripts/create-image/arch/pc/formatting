@@ -1,12 +1,15 @@
 # vim: filetype=sh
 
+BIOSBOOT_PARTITION_SIZE_KB=1024
+FAT_OVERHEAD_PERCENT=10
+
 # partitioning and formatting
 # ---------------------------
 
 partition_stick()
 {
     device=$1
-    efi_partition_size_kb=$2
+    efi_partition_size_kb=$(get_efi_partition_size_kb)
     quiet sgdisk \
             -n 1:0:+${efi_partition_size_kb}K -t 1:ef00 \
             -n 2:0:+${BIOSBOOT_PARTITION_SIZE_KB}K -t 2:ef02 \
@@ -17,9 +20,8 @@ create_formatted_image()
 {
     image_name=$1
     stick_size_kb=$2
-    efi_partition_size_kb=$3
-    lvm_vg=$4
-    image_file="$5"
+    lvm_vg=$3
+    image_file="$4"
     if [ -z "$image_file" ]
     then
         mkdir -p $DBSTCK_TMPDIR/$image_name
@@ -31,7 +33,7 @@ create_formatted_image()
     $DD bs=1024 seek=$stick_size_kb count=0 of="$image_file"
 
     # partition it
-    partition_stick "$image_file" $efi_partition_size_kb
+    partition_stick "$image_file"
 
     # let the kernel know about this device
     image_device=$(losetup -f)
@@ -98,4 +100,25 @@ EOF
     undo mount $image_lvroot_device $image_lvroot_mountpoint
     undo kpartx -a $image_device
     undo losetup $image_device "$image_file"
+}
+
+get_efi_partition_size_kb()
+{
+    set -- $(uefi_binary_image_info)
+    uefi_binary_name=$2
+    efi_image_size_bytes=$(stat -c "%s" $uefi_binary_name)
+    efi_partition_size_kb=$(apply_overhead_percent \
+                $((efi_image_size_bytes/1024)) $FAT_OVERHEAD_PERCENT)
+    echo $efi_partition_size_kb
+}
+
+estimated_image_size_kb()
+{
+    fs_tree="$1"
+    efi_partition_size_kb=$(get_efi_partition_size_kb)
+    fs_size_estimation_kb=$(estimated_size_kb $fs_tree)
+    estimated_stick_size_kb=$((efi_partition_size_kb +
+                        BIOSBOOT_PARTITION_SIZE_KB +
+                        fs_size_estimation_kb))
+    echo $estimated_stick_size_kb
 }

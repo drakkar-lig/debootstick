@@ -104,8 +104,24 @@ quiet_grub_install()
 # image just look for the configuration file generated
 # by the grub-pc installation and loads it. Thus
 # this UEFI configuration also stays up-to-date.
+
+uefi_binary_image_info() {
+    case $target_arch in
+        "amd64")
+            grub_arch="x86_64-efi"
+            img_name="BOOTX64.efi"
+            ;;
+        "i386")
+            grub_arch="i386-efi"
+            img_name="BOOTIA32.efi"
+            ;;
+    esac
+    echo $grub_arch $img_name
+}
+
 build_uefi_binary_image()
 {
+    set -- $(uefi_binary_image_info)
     grub_arch="$1"
     img_name="$2"
     out_binary_path="$(abspath "$img_name")"

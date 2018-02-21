@@ -2,10 +2,8 @@
 
 # constants
 VERSION='@VERSION@'     # updated at install time
-BIOSBOOT_PARTITION_SIZE_KB=1024
 IMAGE_SIZE_MARGIN_KB=0  # fs size estimation is enough pessimistic
 MKSQUASHFS_OPTS="-b 1M -comp xz"
-FAT_OVERHEAD_PERCENT=10
 FS_OVERHEAD_PERCENT=18
 LVM_OVERHEAD_PERCENT=4
 ONE_GIGABYTE_KB=$((1024*1024))
@@ -183,44 +181,29 @@ start_failsafe_mode --toplevel final_cleanup
 failsafe mkdir -p $DBSTCK_TMPDIR
 cd $DBSTCK_TMPDIR
 
-# step0: generate a UEFI bootloader binary
-echo -n "I: generating a UEFI bootloader binary... "
-case $target_arch in
-    "amd64")
-        grub_arch="x86_64-efi"
-        img_name="BOOTX64.efi"
-        ;;
-    "i386")
-        grub_arch="i386-efi"
-        img_name="BOOTIA32.efi"
-        ;;
-esac
-build_uefi_binary_image $grub_arch $img_name
-efi_image_size_bytes=$(stat -c "%s" $img_name)
-efi_partition_size_kb=$(apply_overhead_percent \
-            $((efi_image_size_bytes/1024)) $FAT_OVERHEAD_PERCENT)
-echo done
+# execute arch-specific preliminary steps, if any
+if declare -f arch_preliminary_steps >/dev/null
+then
+    arch_preliminary_steps
+fi
 
-# step1: compute a stick size large enough for our work 
+# step: compute a stick size large enough for our work
 # (i.e. not for the final minimized version)
 echo -n "I: draft image - computing a size large enough... "
-fs_size_estimation_kb=$(estimated_size_kb $ORIG_TREE)
-draft_stick_size_kb=$((efi_partition_size_kb +
-                    BIOSBOOT_PARTITION_SIZE_KB + 
-                    fs_size_estimation_kb +
-                    MAX_WORK_IMAGE_OVERHEAD_KB))
+fs_size_estimation_kb=$(arch_estimated_image_size_kb $ORIG_TREE)
+draft_stick_size_kb=$((fs_size_estimation_kb +
+                       MAX_WORK_IMAGE_OVERHEAD_KB))
 echo done
 
-# step2: create draft image structure
+# step: create draft image structure
 echo -n "I: draft image - partitioning and formatting... "
-create_formatted_image \
+arch_create_formatted_image \
         draft \
         $draft_stick_size_kb \
-        $efi_partition_size_kb \
         $DRAFT_LVM_VG
 echo done
 
-# step3: copy original tree to work image and modify it
+# step: copy original tree to work image and modify it
 echo -n "I: draft image - copying filesystem tree... "
 cd $draft_lvroot_mountpoint
 cp -a $ORIG_TREE/* .
@@ -229,7 +212,7 @@ mkdir -p opt/debootstick
 cp -a $DBSTCK_DIR/scripts/live/common opt/debootstick/live
 cp -a $DBSTCK_DIR/scripts/live/arch/pc/* opt/debootstick/live/
 cp -a $DBSTCK_DIR/scripts/create-image/chrooted-customization-draft.sh .
-# we will need internet connectivity for package 
+# we will need internet connectivity for package
 # management in the chroot. Ensure we have a valid DNS setup there.
 [ -f etc/resolv.conf ] || touch etc/resolv.conf
 with mount -o bind /etc/resolv.conf $PWD/etc/resolv.conf; do
@@ -246,10 +229,10 @@ done
 rm ./chrooted-customization-draft.sh
 cd ..
 
-# step4: finalyse filesystem setup 
+# step: finalyse filesystem setup
 finalize_fs $draft_lvroot_mountpoint
 
-# step5: compute minimal size of final stick
+# step: compute minimal size of final stick
 echo -n "I: final image - computing minimal image size... "
 cd $DBSTCK_TMPDIR
 data_size_kb=$(estimated_size_kb $draft_lvroot_mountpoint)
@@ -269,21 +252,20 @@ final_stick_size_kb=$((
 ))
 echo done
 
-# step6: copy work version to the final image (with minimal size)
+# step: copy work version to the final image (with minimal size)
 
 # prepare a final image with minimal size
 echo -n "I: final image - partitioning and formatting... "
-create_formatted_image \
+arch_create_formatted_image \
         final \
         $final_stick_size_kb \
-        $efi_partition_size_kb \
         ${FINAL_LVM_VG} \
         $final_image_abspath
 echo done
 echo -n "I: final image - copying content from draft image... "
 cp -a $draft_lvroot_mountpoint/* $final_lvroot_mountpoint/
 echo done
-release_image draft     # not needed anymore
+arch_release_image draft     # not needed anymore
 
 # add the dbstck.conf file
 cat > $final_lvroot_mountpoint/dbstck.conf << EOF
@@ -292,8 +274,7 @@ SYSTEM_TYPE=$system_type
 ASK_ROOT_PASSWORD_ON_FIRST_BOOT=$root_password_on_first_boot
 EOF
 
-# step7: install BIOS bootloader
-
+# step: customize final OS
 cd $final_lvroot_mountpoint
 # since the size of the filesystem mounted there is minimized,
 # creating new files may cause problems.
@@ -304,13 +285,13 @@ with mount -t tmpfs none $final_lvroot_mountpoint/tmp; do
 done
 cd ..
 
-# step8: setup the EFI boot partition
-echo -n "I: final image - setting up the EFI boot partition... "
-mkdir -p $final_efipart_mountpoint/EFI/BOOT
-mv $DBSTCK_TMPDIR/*.efi $final_efipart_mountpoint/EFI/BOOT/
-echo done
+# execute arch-specific final steps, if any
+if declare -f arch_final_customization_steps >/dev/null
+then
+    arch_final_customization_steps
+fi
 
-# step9: clean up
+# step: clean up
 echo -n "I: cleaning up... "
 undo_all
 echo done
