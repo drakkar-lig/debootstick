@@ -1,5 +1,5 @@
 #!/bin/sh
-OTHER_PACKAGES="lvm2 gdisk grub-pc e2fsprogs"
+PACKAGES="lvm2 gdisk e2fsprogs"
 eval "$chrooted_functions"
 start_failsafe_mode
 # in the chroot commands should use /tmp for temporary files
@@ -27,11 +27,15 @@ failsafe mount -t proc none /proc
 failsafe_mount_sys_and_dev
 export DEBIAN_FRONTEND=noninteractive LANG=C
 
-# if update-grub is called as part of the package installation
-# it should properly find our virtual device.
-# (we will properly install the bootloader on the final device
-# anyway, this is only useful to avoid warnings)
-update_grup_device_map $loop_device
+if $arch_prepare_rootfs_exists
+then
+    arch_prepare_rootfs
+fi
+
+if $arch_custom_packages_exists
+then
+    PACKAGES="$PACKAGES $(arch_custom_packages)"
+fi
 
 # install missing packages
 echo -n "I: draft image - updating package manager database... "
@@ -41,17 +45,7 @@ echo done
 if [ -z "$kernel_package" ]
 then
     # kernel package not specified, install a default one
-    # * ubuntu: linux-image-generic
-    # * debian on i386: linux-image-686-pae
-    # * debian on amd64: linux-image-amd64
-    case "$target_arch" in
-    "amd64")
-        kernel_search_regexp="^linux-image-((generic)|(amd64))$"
-        ;;
-    "i386")
-        kernel_search_regexp="^linux-image-((generic)|(686-pae))$"
-        ;;
-    esac
+    kernel_search_regexp="^$(arch_kernel_default_package)$"
     error_if_missing="$(
         echo "E: no linux kernel package found."
         echo "E: Run 'debootstick --help-os-support' for more info."
@@ -70,7 +64,7 @@ then
 fi
 
 to_be_installed=""
-for package in $kernel_package_found $OTHER_PACKAGES
+for package in $kernel_package_found $PACKAGES
 do
     if [ $(package_is_installed $package) -eq 0 ]
     then
@@ -93,13 +87,6 @@ rm -rf /var/lib/apt/lists/*
 
 # tune LVM config
 tune_lvm
-
-# tune grub conf
-update_grub_conf $kernel_bootargs
-if [ "$config_grub_on_serial_line" -gt 0 ]
-then
-    update_grub_conf_serial_line
-fi
 
 # for text console in kvm
 if [ "$debug" = "1" ]
@@ -132,27 +119,15 @@ case "$root_password_request" in
 esac
 
 echo -n "I: draft image - setting up bootloader... "
-# disable quickboot:
-# work around grub displaying error message with our LVM setup
-# disable vt_handoff:
-# the linux console should be visible during startup (especially
-# if we must enter the root password, or in installer-mode), do
-# not switch to vt7.
-# note: even if the file etc/grub.d/10_linux is re-created
-# after an upgrade of the package grub-common, our script
-# 09_linux_custom will be executed first and take precedence.
-sed -i -e 's/quick_boot=.*/quick_boot=0/' \
-       -e 's/vt_handoff=.*/vt_handoff=0/' etc/grub.d/10_linux
-mv etc/grub.d/10_linux etc/grub.d/09_linux_custom
+arch_configure_bootloader
 
-# install grub on this temporary work-image
-# This may not seem useful (it will be repeated on the final
+# installing grub on this temporary work-image
+# may not seem useful (it will be repeated on the final
 # stick anyway), but actually it is:
 # the files created there should be accounted when
 # estimating the final stick minimal size).
-quiet_grub_install $loop_device
+arch_install_bootloader
 
-rm boot/grub/device.map
 echo done
 
 echo -n "I: draft image - updating fstab... "
@@ -186,6 +161,10 @@ then
     echo done
 fi
 
+if $arch_cleanup_rootfs_exists
+then
+    arch_cleanup_rootfs
+fi
 # umount all
 undo_all
 

@@ -1,0 +1,19 @@
+# vim: filetype=sh
+
+# this must be called by bash (sh has no 'declare' command)
+has_function() {
+    if declare -f $1 >/dev/null
+    then
+        echo true
+    else
+        echo false
+    fi
+}
+
+probe_arch_optional_functions() {
+    export arch_preliminary_steps_exists=$(has_function arch_preliminary_steps)
+    export arch_final_customization_steps_exists=$(has_function arch_final_customization_steps)
+    export arch_prepare_rootfs_exists=$(has_function arch_prepare_rootfs)
+    export arch_cleanup_rootfs_exists=$(has_function arch_cleanup_rootfs)
+    export arch_custom_packages_exists=$(has_function arch_custom_packages)
+}

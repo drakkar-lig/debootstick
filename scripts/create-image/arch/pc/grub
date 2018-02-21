@@ -3,10 +3,23 @@
 # grub configuration
 # ------------------
 
+prepare_rootfs()
+{
+    # if update-grub is called as part of the package installation
+    # it should properly find our virtual device.
+    # (we will properly install the bootloader on the final device
+    # anyway, this is only useful to avoid warnings)
+    update_grup_device_map
+}
+
+cleanup_rootfs()
+{
+    rm boot/grub/device.map
+}
+
 # let grub find our virtual device
 update_grup_device_map()
 {
-    loop_device=$1
     cd /
     mkdir -p boot/grub
     cat > boot/grub/device.map << END_MAP
@@ -91,6 +104,34 @@ quiet_grub_install()
     # the return value we want is the one we caught
     # earlier (or none if all went well):
     return $return_code
+}
+
+configure_bootloader()
+{
+    # tune grub conf
+    update_grub_conf $kernel_bootargs
+    if [ "$config_grub_on_serial_line" -gt 0 ]
+    then
+        update_grub_conf_serial_line
+    fi
+
+    # disable quickboot:
+    # work around grub displaying error message with our LVM setup
+    # disable vt_handoff:
+    # the linux console should be visible during startup (especially
+    # if we must enter the root password, or in installer-mode), do
+    # not switch to vt7.
+    # note: even if the file etc/grub.d/10_linux is re-created
+    # after an upgrade of the package grub-common, our script
+    # 09_linux_custom will be executed first and take precedence.
+    sed -i -e 's/quick_boot=.*/quick_boot=0/' \
+           -e 's/vt_handoff=.*/vt_handoff=0/' etc/grub.d/10_linux
+    mv etc/grub.d/10_linux etc/grub.d/09_linux_custom
+}
+
+install_bootloader()
+{
+    quiet_grub_install $loop_device
 }
 
 # UEFI support

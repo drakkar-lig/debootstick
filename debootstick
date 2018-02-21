@@ -154,6 +154,7 @@ functions="$(
 # have them available here and in chrooted scripts
 eval "$functions"
 export chrooted_functions="$functions"
+probe_arch_optional_functions
 
 ORIG_TREE="$(cd "$chroot_in"; pwd)"
 STICK_OS_ID=$(uuidgen | tr -d '-')
@@ -182,7 +183,7 @@ failsafe mkdir -p $DBSTCK_TMPDIR
 cd $DBSTCK_TMPDIR
 
 # execute arch-specific preliminary steps, if any
-if declare -f arch_preliminary_steps >/dev/null
+if $arch_preliminary_steps_exists
 then
     arch_preliminary_steps
 fi
@@ -286,7 +287,7 @@ done
 cd ..
 
 # execute arch-specific final steps, if any
-if declare -f arch_final_customization_steps >/dev/null
+if $arch_final_customization_steps_exists
 then
     arch_final_customization_steps
 fi

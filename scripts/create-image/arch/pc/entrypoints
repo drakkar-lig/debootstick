@@ -25,3 +25,33 @@ arch_release_image() {
 arch_estimated_image_size_kb() {
     estimated_image_size_kb $@
 }
+
+# for details about the following functions
+# see 'packages' file
+
+arch_kernel_default_package() {
+    kernel_default_package
+}
+
+arch_custom_packages() {
+    custom_packages
+}
+
+# for details about the following functions
+# see 'grub' file
+
+arch_configure_bootloader() {
+    configure_bootloader
+}
+
+arch_install_bootloader() {
+    install_bootloader
+}
+
+arch_prepare_rootfs() {
+    prepare_rootfs
+}
+
+arch_cleanup_rootfs() {
+    cleanup_rootfs
+}
