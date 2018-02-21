@@ -154,7 +154,7 @@ undo_kpartx()
     disk_device="$2"
 
     # we have to detach lvm devices associated
-    # to the <disk_device>, then keep the related
+    # to the <disk_device>, they keep the related
     # partition in a busy state otherwise.
     # Retrieving these devices is not so easy...
     partitions=$(kpartx -l $disk_device | \
@@ -166,13 +166,20 @@ undo_kpartx()
                         awk '{print "/dev/" $1 "/" $2}')
         for lv_device in $lv_devices
         do
-            dmsetup remove $lv_device
+            lvchange -an $lv_device
+            if [ -e $lv_device ]
+            then
+                dmsetup remove $lv_device
+            fi
         done
     fi
 
     # we can now request the kernel to remove
     # <disk_device> partitions
     kpartx -d "$disk_device"
+
+    # update lvm knowledge about physical volumes
+    pvscan --cache
 }
 
 undo_chroot()
