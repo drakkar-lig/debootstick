@@ -147,7 +147,7 @@ install_bootloader()
 # this UEFI configuration also stays up-to-date.
 
 uefi_binary_image_info() {
-    case $target_arch in
+    case "$(get_target_cpu "$ORIG_TREE")" in
         "amd64")
             grub_arch="x86_64-efi"
             img_name="BOOTX64.efi"

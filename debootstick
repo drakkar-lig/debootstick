@@ -123,8 +123,6 @@ fi
 # file hierarchy
 check_fs_hierarchy "$chroot_in" || usage_and_exit
 
-# get and verify target architecture
-target_arch=$(check_target_arch "$chroot_in")
 
 # get common and arch-specific functions
 functions="$(
@@ -234,8 +232,7 @@ with mount -o bind /etc/resolv.conf $PWD/etc/resolv.conf; do
                 config_grub_on_serial_line=$config_grub_on_serial_line  \
                 kernel_package="\"$kernel_package\""    \
                 kernel_bootargs="\"$kernel_bootargs\"" \
-                config_hostname="\"$config_hostname\"" \
-                target_arch="$target_arch"
+                config_hostname="\"$config_hostname\""
 done
 rm ./chrooted-customization-draft.sh
 cd ..

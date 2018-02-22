@@ -10,7 +10,7 @@ kernel_default_package()
     # * ubuntu: linux-image-generic
     # * debian on i386: linux-image-686-pae
     # * debian on amd64: linux-image-amd64
-    case "$target_arch" in
+    case "$(get_target_cpu /)" in
     "amd64")
         echo "linux-image-((generic)|(amd64))"
         ;;

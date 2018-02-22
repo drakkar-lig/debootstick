@@ -25,20 +25,3 @@ check_fs_hierarchy()
         return 1
     }
 }
-
-check_target_arch()
-{
-    fs_tree="$1"
-    arch="$(chroot "$fs_tree" dpkg --print-architecture 2>&1 || true)"
-    case "$arch" in
-    "amd64"|"i386") # ok
-        ;;
-    *)
-        echo "E: Got '$arch' while trying to check the architecture of the chroot environment." >&2
-        echo "E: debootstick currently cannot handle such a chroot environment." >&2
-        echo "E: Run 'debootstick --help-os-support' for more info." >&2
-        return 1
-        ;;
-    esac
-    echo "$arch"
-}

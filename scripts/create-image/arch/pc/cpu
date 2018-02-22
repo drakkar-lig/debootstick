@@ -1,0 +1,13 @@
+# vim: filetype=sh
+
+get_target_cpu() {
+    fs_tree="$1"
+    if ls "$fs_tree/etc/ld.so.conf.d/i686-linux-gnu.conf" >/dev/null 2>&1
+    then
+        echo "i386"
+    fi
+    if ls "$fs_tree/etc/ld.so.conf.d/x86_64-linux-gnu.conf" >/dev/null 2>&1
+    then
+        echo "amd64"
+    fi
+}
