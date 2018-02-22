@@ -54,6 +54,31 @@ get_booted_device()
     echo $(echo $1 | sed -e "s/.$//")
 }
 
+# partx does not report the type the same way on all systems
+MATCH_LVM_PV="\(0x8e\)\|\(e6d6d379-f507-44c2-a23c-238f2a3df928\)\|\(Linux LVM\)"
+
+part_types()
+{
+    partx -sg -o NR,TYPE "$1"
+}
+
+get_pv_part_num()
+{
+    set -- $(part_types "$1" | grep "$MATCH_LVM_PV")
+    echo $1
+}
+
+get_part_nums_not_pv()
+{
+    part_types "$1" | grep -v "$MATCH_LVM_PV" | awk '{print $1}'
+}
+
+get_next_part_num()
+{
+    set -- $(part_types "$1" | sort -n | tail -n 1)
+    echo $(($1+1))
+}
+
 get_higher_capacity_devices()
 {
     threshold=$1

@@ -7,12 +7,32 @@ THIS_DIR=$(cd $(dirname $0); pwd)
 clear
 echo "** ---- INSTALLER MODE -------------------"
 ORIGIN=$(get_booted_device $LVM_VG)
+pv_part_num=$(get_pv_part_num $ORIGIN)
+next_part_num=$(get_next_part_num $ORIGIN)
+
+if [ "$next_part_num" -ne "$(($pv_part_num+1))" ] 
+then
+    echo "** ERROR: LVM physical volume is not the last partition!"
+    echo "** ERROR: Installer mode seems broken on this architecture."
+    echo "Aborted!"
+    exit 1
+fi
+
+if [ -z "$BOOTLOADER_INSTALL" ]
+then
+    echo "** ERROR: Unknown bootloader installation procedure!"
+    echo "** ERROR: Installer mode seems broken on this architecture."
+    echo "Aborted!"
+    exit 1
+fi
+
 origin_capacity=$(get_device_capacity $ORIGIN)
 larger_devices="$(get_higher_capacity_devices $origin_capacity)"
 
 if [ "$larger_devices" = "" ]
 then
     echo "Error: no device larger than the one currently booted was detected." >&2
+    echo "Aborted!"
     exit 1
 fi
 
@@ -48,25 +68,28 @@ echo "** Going on."
     sgdisk -G ${TARGET}
 
     echo MSG extending the last partition...
-    sgdisk -d 3 -n 3:0:0 -t 3:8e00 ${TARGET}
+    sgdisk -d $pv_part_num -n $pv_part_num:0:0 \
+                -t $pv_part_num:8e00 ${TARGET}
 
     echo MSG letting the kernel update partition info...
     partx -d ${TARGET}
     partx -a ${TARGET}
 
-    echo MSG copying partition contents...
-    dd_min_verbose if=${ORIGIN}1 of=${TARGET}1 bs=10M
-    dd_min_verbose if=${ORIGIN}2 of=${TARGET}2 bs=10M
+    echo MSG copy partitions that are not LVM PVs...
+    for n in $(get_part_nums_not_pv $ORIGIN)
+    do
+        dd_min_verbose if=${ORIGIN}$n of=${TARGET}$n bs=10M
+    done
 
     echo MSG moving the lvm volume content on ${TARGET}...
-    yes | pvcreate -ff ${TARGET}3
-    vgextend $LVM_VG ${TARGET}3
-    pvchange -x n ${ORIGIN}3
-    pvmove -i 1 ${ORIGIN}3 | while read pv action percent
+    yes | pvcreate -ff ${TARGET}$pv_part_num
+    vgextend $LVM_VG ${TARGET}$pv_part_num
+    pvchange -x n ${ORIGIN}$pv_part_num
+    pvmove -i 1 ${ORIGIN}$pv_part_num | while read pv action percent
     do
         echo REFRESHING_MSG "$percent"
     done
-    vgreduce $LVM_VG ${ORIGIN}3
+    vgreduce $LVM_VG ${ORIGIN}$pv_part_num
     echo REFRESHING_DONE
 
     echo MSG filling the space available...
@@ -74,10 +97,10 @@ echo "** Going on."
     resize2fs /dev/$LVM_VG/ROOT
 
     echo MSG installing the bootloader...
-    grub-install ${TARGET}
+    $BOOTLOADER_INSTALL ${TARGET}
 
     echo MSG making sure ${ORIGIN} is not used anymore...
-    pvremove ${ORIGIN}3
+    pvremove ${ORIGIN}$pv_part_num
     sync; sync
     partx -d ${ORIGIN}
 

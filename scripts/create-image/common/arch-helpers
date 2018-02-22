@@ -16,4 +16,5 @@ probe_arch_optional_functions() {
     export arch_prepare_rootfs_exists=$(has_function arch_prepare_rootfs)
     export arch_cleanup_rootfs_exists=$(has_function arch_cleanup_rootfs)
     export arch_custom_packages_exists=$(has_function arch_custom_packages)
+    export arch_get_bootloader_install_command_exists=$(has_function arch_get_bootloader_install_command)
 }

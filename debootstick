@@ -126,6 +126,27 @@ check_fs_hierarchy "$chroot_in" || usage_and_exit
 # get and verify target architecture
 target_arch=$(check_target_arch "$chroot_in")
 
+# get common and arch-specific functions
+functions="$(
+    cat $DBSTCK_DIR/scripts/create-image/common/* \
+        $DBSTCK_DIR/scripts/create-image/arch/pc/*)"
+
+# have them available here and in chrooted scripts
+eval "$functions"
+export chrooted_functions="$functions"
+probe_arch_optional_functions
+
+if $arch_get_bootloader_install_command_exists
+then
+    bootloader_install_command=$(arch_get_bootloader_install_command)
+elif [ "$system_type" = "installer" ]
+then
+    # cannot use installer mode because arch does not specify
+    # a bootloader installation procedure.
+    echo "Sorry, this architecture does not support installer system type." >&2
+    exit 1
+fi
+
 # if we are here, command line is ok :)
 if [ "$root_password_request" = "ASK" ]
 then
@@ -145,16 +166,6 @@ then
         fi
     done
 fi
-
-# get common and arch-specific functions
-functions="$(
-    cat $DBSTCK_DIR/scripts/create-image/common/* \
-        $DBSTCK_DIR/scripts/create-image/arch/pc/*)"
-
-# have them available here and in chrooted scripts
-eval "$functions"
-export chrooted_functions="$functions"
-probe_arch_optional_functions
 
 ORIG_TREE="$(cd "$chroot_in"; pwd)"
 STICK_OS_ID=$(uuidgen | tr -d '-')
@@ -210,8 +221,7 @@ cd $draft_lvroot_mountpoint
 cp -a $ORIG_TREE/* .
 echo done
 mkdir -p opt/debootstick
-cp -a $DBSTCK_DIR/scripts/live/common opt/debootstick/live
-cp -a $DBSTCK_DIR/scripts/live/arch/pc/* opt/debootstick/live/
+cp -a $DBSTCK_DIR/scripts/live opt/debootstick/live
 cp -a $DBSTCK_DIR/scripts/create-image/chrooted-customization-draft.sh .
 # we will need internet connectivity for package
 # management in the chroot. Ensure we have a valid DNS setup there.
@@ -273,6 +283,7 @@ cat > $final_lvroot_mountpoint/dbstck.conf << EOF
 LVM_VG=$FINAL_LVM_VG
 SYSTEM_TYPE=$system_type
 ASK_ROOT_PASSWORD_ON_FIRST_BOOT=$root_password_on_first_boot
+BOOTLOADER_INSTALL=$bootloader_install_command
 EOF
 
 # step: customize final OS

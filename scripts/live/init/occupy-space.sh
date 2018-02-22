@@ -7,6 +7,9 @@ THIS_DIR=$(cd $(dirname $0); pwd)
 # find device currently being booted
 device=$(get_booted_device $LVM_VG)
 
+pv_part_num=$(get_pv_part_num $device)
+next_part_num=$(get_next_part_num $device)
+
 echo "** Extending disk space..."
 
 {
@@ -16,10 +19,11 @@ echo "** Extending disk space..."
         # we can extend the lvm partition and
         # dynamically notify the kernel about it.
         echo MSG resizing partition...
-        sgdisk -e -d 3 -n 3:0:0 -t 3:8e00 ${device}
+        sgdisk -e -d $pv_part_num -n $pv_part_num:0:0 \
+                    -t $pv_part_num:8e00 ${device}
         partx -u ${device}  # notify the kernel
         echo MSG resizing lvm physical volume...
-        pvresize ${device}3
+        pvresize ${device}$pv_part_num
     else
         # this OS version is too old to be able
         # to notify the kernel of a partition
@@ -28,15 +32,17 @@ echo "** Extending disk space..."
         # instead, we create one more new partition
         # and add it to the lvm group.
         echo MSG creating a new partition...
-        sgdisk -e -n 4:0:0 -t 4:8e00 ${device}
-        partx -a 4 ${device}  # notify the kernel
+        sgdisk -e -n $next_part_num:0:0 \
+                    -t $next_part_num:8e00 ${device}
+        partx -a $next_part_num ${device}  # notify the kernel
         echo MSG creating an lvm physical volume...
-        pvcreate ${device}4
+        pvcreate ${device}$next_part_num
         echo MSG extending the lvm volume group...
-        vgextend $LVM_VG ${device}4
+        vgextend $LVM_VG ${device}$next_part_num
     fi
 
-    if [ "x$(vgs -o vg_free --noheadings --nosuffix $LVM_VG | tr -d [:blank:])" != "x0" ]; then
+    if [ "x$(vgs -o vg_free --noheadings --nosuffix $LVM_VG \
+                | tr -d [:blank:])" != "x0" ]; then
        echo MSG resizing lvm logical volume...
        lvextend -l+100%FREE /dev/$LVM_VG/ROOT
        echo MSG resizing filesystem...

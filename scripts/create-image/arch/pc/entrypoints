@@ -55,3 +55,7 @@ arch_prepare_rootfs() {
 arch_cleanup_rootfs() {
     cleanup_rootfs
 }
+
+arch_get_bootloader_install_command() {
+    echo grub-install
+}
