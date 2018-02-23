@@ -49,3 +49,18 @@ check_fs_hierarchy()
         ;;
     esac
 }
+
+detect_arch_type()
+{
+    fs_tree="$1"
+    dir="$DBSTCK_DIR/scripts/create-image/arch"
+    for subdir in $(ls "$dir")
+    do
+        "$dir/$subdir/detect.sh" "$fs_tree" >/dev/null && {
+            echo "$subdir"
+            return
+        }
+    done
+    echo "E: debootstick does not know how to handle your chroot environment." >&2
+    echo "E: Run 'debootstick --help-os-support' for more info." >&2
+}

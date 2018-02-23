@@ -123,11 +123,16 @@ fi
 # file hierarchy (1st level of checks)
 check_fs_hierarchy "$chroot_in" 1 || exit 1
 
+# detect arch type
+arch_type="$(detect_arch_type "$chroot_in")"
+[ -z "$arch_type" ] && exit 1
 
 # get common and arch-specific functions
 functions="$(
-    cat $DBSTCK_DIR/scripts/create-image/common/* \
-        $DBSTCK_DIR/scripts/create-image/arch/pc/*)"
+    cat "$DBSTCK_DIR"/scripts/create-image/common/* $arch_scripts
+    cat $(find "$DBSTCK_DIR"/scripts/create-image/arch/$arch_type/ \
+                    -type f ! -name detect.sh)
+)"
 
 # have them available here and in chrooted scripts
 eval "$functions"
