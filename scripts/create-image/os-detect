@@ -5,23 +5,47 @@
 check_fs_hierarchy()
 {
     fs_tree="$1"
-    ls "$fs_tree/bin/echo" >/dev/null 2>&1 || {
-        echo "E: No /bin/echo found in $1."
-        echo "E: This does not seem to be a chroot environment."
-        return 1
-    }
-    chroot "$fs_tree" echo -n >/dev/null 2>&1 || {
-        echo "E: Unable to execute binaries (/bin/echo at least) in the chroot environment."
-        echo "E: Please verify:"
-        echo "E: - file permissions in the chroot environment"
-        echo "E: - that your host CPU is able to run binaries of the target architecture"
-        echo "E: Run 'debootstick --help-os-support' for info about compatible environments."
-        return 1
-    }
-    chroot "$fs_tree" which apt-get >/dev/null 2>&1 || {
-        echo "E: No apt-get found in $1."
-        echo "E: debootstick cannot handle this kind of chroot environment."
-        echo "E: Run 'debootstick --help-os-support' for more info."
-        return 1
-    }
+    level="$2"
+    case "$level" in
+    "1")
+        if [ ! -f "$fs_tree/bin/echo" ]
+        then
+            echo "E: No /bin/echo found in $fs_tree."
+            echo "E: This does not seem to be a chroot environment."
+            return 1
+        fi
+
+        if [ ! -f "$fs_tree/etc/os-release" ]
+        then
+            echo "E: No /etc/os-release file found in $fs_tree."
+            echo "E: Cannot check compatibility. Aborting."
+            return 1
+        fi
+
+        . "$fs_tree/etc/os-release"
+        if [ "$ID" != "debian" -a "$ID_LIKE" != "debian" ]
+        then
+            echo "E: /etc/os-release file in $fs_tree does not report a debian-like OS."
+            echo "E: debootstick currently cannot handle such a chroot environment." >&2
+            echo "E: Run 'debootstick --help-os-support' for more info."
+            return 1
+        fi
+        ;;
+    "2")
+        chroot "$fs_tree" echo -n >/dev/null 2>&1 || {
+            echo "E: Unable to execute binaries (/bin/echo at least) in the chroot environment."
+            echo "E: Please verify:"
+            echo "E: - file permissions in the chroot environment"
+            echo "E: - that your host CPU is able to run binaries of the target architecture"
+            echo "E: Run 'debootstick --help-os-support' for info about compatible environments."
+            return 1
+        }
+        chroot "$fs_tree" which apt-get >/dev/null 2>&1 || {
+            echo "E: No apt-get found in $1."
+            echo "E: debootstick cannot handle this kind of chroot environment."
+            echo "E: Run 'debootstick --help-os-support' for more info."
+            return 1
+        }
+        ;;
+    esac
 }
