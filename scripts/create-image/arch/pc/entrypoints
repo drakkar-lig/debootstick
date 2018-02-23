@@ -22,10 +22,6 @@ arch_release_image() {
     release_image $@
 }
 
-arch_estimated_image_size_kb() {
-    estimated_image_size_kb $@
-}
-
 # for details about the following functions
 # see 'packages' file
 

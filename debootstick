@@ -200,7 +200,7 @@ fi
 # step: compute a stick size large enough for our work
 # (i.e. not for the final minimized version)
 echo -n "I: draft image - computing a size large enough... "
-fs_size_estimation_kb=$(arch_estimated_image_size_kb $ORIG_TREE)
+fs_size_estimation_kb=$(estimated_size_kb $ORIG_TREE)
 draft_stick_size_kb=$((fs_size_estimation_kb +
                        MAX_WORK_IMAGE_OVERHEAD_KB))
 echo done

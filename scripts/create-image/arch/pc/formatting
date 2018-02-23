@@ -111,14 +111,3 @@ get_efi_partition_size_kb()
                 $((efi_image_size_bytes/1024)) $FAT_OVERHEAD_PERCENT)
     echo $efi_partition_size_kb
 }
-
-estimated_image_size_kb()
-{
-    fs_tree="$1"
-    efi_partition_size_kb=$(get_efi_partition_size_kb)
-    fs_size_estimation_kb=$(estimated_size_kb $fs_tree)
-    estimated_stick_size_kb=$((efi_partition_size_kb +
-                        BIOSBOOT_PARTITION_SIZE_KB +
-                        fs_size_estimation_kb))
-    echo $estimated_stick_size_kb
-}
