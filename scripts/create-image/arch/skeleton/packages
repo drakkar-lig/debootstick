@@ -1,0 +1,11 @@
+# vim: filetype=sh
+
+custom_packages()
+{
+    #echo package1 package2
+}
+
+kernel_default_package()
+{
+    #echo linux-kernel-package
+}

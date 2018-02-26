@@ -1,0 +1,46 @@
+# vim: filetype=sh
+
+# partitioning and formatting
+# ---------------------------
+
+# This function must partition an image file.
+#
+# Parameters:
+# 1: file path of the image file
+#
+# debootstick requires at least one partition of
+# type 8e00 (Linux LVM). It must be the last partition
+# of the image. It will hold the root filesystem.
+
+partition_image()
+{
+    device=$1
+    # quiet sgdisk <options>...
+}
+
+# This function will be called once for each partition
+# except the last one (last one is managed by debootstick core).
+#
+# Parameters:
+# 1: partition number
+# 2: partition device
+#
+# If a partition needs no formatting, return 1.
+
+format_partition()
+{
+    partnum=$1
+    partdevice=$2
+
+#    if [ $partnum -eq 1 ]
+#    then
+#        # format the 1st partition
+#        quiet mkfs.vfat <options>...
+#        return 0
+#    else
+#        # partition 2 needs no filesystem
+#        # ...
+#        # partition n is the root fs => managed by debootstick core
+#        return 1
+#    fi
+}

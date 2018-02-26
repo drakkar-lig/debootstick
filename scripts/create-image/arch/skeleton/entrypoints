@@ -1,0 +1,59 @@
+# vim: filetype=sh
+
+# Note: commented functions are optional.
+
+# for details about the following functions
+# see 'steps' file
+
+#arch_preliminary_steps() {
+#    preliminary_steps
+#}
+
+#arch_final_customization_steps() {
+#    final_customization_steps
+#}
+
+# for details about the following functions
+# see 'formatting' file
+
+arch_partition_image() {
+    partition_image $@
+}
+
+arch_format_partition() {
+    format_partition $@
+}
+
+# for details about the following functions
+# see 'packages' file
+
+arch_kernel_default_package() {
+    kernel_default_package
+}
+
+#arch_custom_packages() {
+#    custom_packages
+#}
+
+# for details about the following functions
+# see 'bootloader' file
+
+arch_configure_bootloader() {
+    configure_bootloader
+}
+
+arch_install_bootloader() {
+    install_bootloader
+}
+
+#arch_prepare_rootfs() {
+#    prepare_rootfs
+#}
+
+#arch_cleanup_rootfs() {
+#    cleanup_rootfs
+#}
+
+#arch_get_bootloader_install_command() {
+#    echo my-bootloader-install
+#}

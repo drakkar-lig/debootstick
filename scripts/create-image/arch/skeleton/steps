@@ -1,0 +1,4 @@
+# vim: filetype=sh
+
+# this file can be deleted unless you implement one of the
+# related optional functions (see entrypoints file).

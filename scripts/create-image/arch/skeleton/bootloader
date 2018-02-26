@@ -1,0 +1,28 @@
+# vim: filetype=sh
+
+# bootloader management
+# ---------------------
+
+# configure the bootloader appropriately, given the variable $kernel_bootargs
+# and any other arch-specific requirements.
+
+configure_bootloader()
+{
+    kernel_cmdline="<default kernel bootargs ...>"
+
+    # the user may add a bootarg by specifying a modifier "<bootarg>" or "+<bootarg>"
+    # and delete a bootarg by specifying a modifier "-<bootarg>"
+    # In the case of grub, we add bootargs to grub's GRUB_CMDLINE_LINUX variable.
+    # However, when deleting a bootarg, it may actually be in GRUB_CMDLINE_LINUX_DEFAULT too.
+
+    kernel_cmdline="$(update_kernel_cmdline "$kernel_cmdline" $kernel_bootargs)"
+
+    # write $kernel_cmdline in appropriate configuration file...
+}
+
+# install the bootloader on $loop_device
+
+install_bootloader()
+{
+    my_bootloader_install $loop_device
+}
