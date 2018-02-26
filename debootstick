@@ -234,7 +234,7 @@ cp -a $DBSTCK_DIR/scripts/create-image/chrooted-customization-draft.sh .
 with mount -o bind /etc/resolv.conf $PWD/etc/resolv.conf; do
     # let's start the customization
     chroot . ./chrooted-customization-draft.sh $CHROOTED_DEBUG    \
-                $draft_device $root_password_request        \
+                "$draft_device" "$root_password_request"        \
                 final_lvm_vg=$FINAL_LVM_VG   \
                 config_grub_on_serial_line=$config_grub_on_serial_line  \
                 kernel_package="\"$kernel_package\""    \
@@ -297,7 +297,7 @@ cd $final_lvroot_mountpoint
 # so we will use the directory /tmp that we mount in memory.
 with mount -t tmpfs none $final_lvroot_mountpoint/tmp; do
     cp -a $DBSTCK_DIR/scripts/create-image/chrooted-customization-final.sh tmp
-    chroot . tmp/chrooted-customization-final.sh $final_device
+    chroot . tmp/chrooted-customization-final.sh "$final_device"
 done
 cd ..
 
