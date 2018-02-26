@@ -6,7 +6,7 @@ FAT_OVERHEAD_PERCENT=10
 # partitioning and formatting
 # ---------------------------
 
-partition_stick()
+partition_image()
 {
     device=$1
     efi_partition_size_kb=$(get_efi_partition_size_kb)
@@ -16,90 +16,21 @@ partition_stick()
             -n 3:0:0 -t 3:8e00 $device
 }
 
-create_formatted_image()
+format_partition()
 {
-    image_name=$1
-    stick_size_kb=$2
-    lvm_vg=$3
-    image_file="$4"
-    if [ -z "$image_file" ]
+    partnum=$1
+    partdevice=$2
+
+    if [ $partnum -eq 1 ]
     then
-        mkdir -p $DBSTCK_TMPDIR/$image_name
-        image_file=$DBSTCK_TMPDIR/$image_name/file
+        # format the efi partition
+        quiet mkfs.vfat -n DBSTCK_EFI $partdevice
+        return 0
+    else
+        # partition 2 needs no filesystem
+        # partition 3 is the root fs => managed by debootstick core
+        return 1
     fi
-
-    # create image file
-    rm -f "$image_file"
-    $DD bs=1024 seek=$stick_size_kb count=0 of="$image_file"
-
-    # partition it
-    partition_stick "$image_file"
-
-    # let the kernel know about this device
-    image_device=$(losetup -f)
-    failsafe losetup $image_device "$image_file"
-    failsafe kpartx -a $image_device
-
-    # retrieve the partition devices
-    set -- $(kpartx -l $image_device | awk '{ print "/dev/mapper/"$1 }')
-    image_efipart_device=$1
-    image_lvmpart_device=$3
-
-    # create an lvm volume
-    wait_for_device $image_lvmpart_device
-    quiet pvcreate $image_lvmpart_device
-    quiet vgcreate $lvm_vg $image_lvmpart_device
-    quiet lvcreate -n ROOT -l 100%FREE $lvm_vg
-
-    # format this lvm volume
-    image_lvroot_device=/dev/$lvm_vg/ROOT
-    make_root_fs $image_lvroot_device
-
-    # format the efi partition
-    wait_for_device $image_efipart_device
-    quiet mkfs.vfat -n DBSTCK_EFI $image_efipart_device
-
-    # mount efi partition and root volume
-    image_lvroot_mountpoint=$DBSTCK_TMPDIR/$image_name/lvroot
-    image_efipart_mountpoint=$DBSTCK_TMPDIR/$image_name/efipart
-    mkdir -p $image_lvroot_mountpoint $image_efipart_mountpoint
-    failsafe mount $image_lvroot_device $image_lvroot_mountpoint
-    failsafe mount $image_efipart_device $image_efipart_mountpoint
-
-    # let the calling code know what we have done
-    eval "$(cat << EOF
-${image_name}_file="$image_file"
-${image_name}_device=$image_device
-${image_name}_efipart_device=$image_efipart_device
-${image_name}_efipart_mountpoint=$image_efipart_mountpoint
-${image_name}_lvm_vg=$lvm_vg
-${image_name}_lvmpart_device=$image_lvmpart_device
-${image_name}_lvroot_device=$image_lvroot_device
-${image_name}_lvroot_mountpoint=$image_lvroot_mountpoint
-EOF
-    )"
-}
-
-release_image()
-{
-    # read variables with prefix $1=draft or $1=final
-    eval "$(cat << EOF
-image_name=${1}
-image_file="\${${1}_file}"
-image_device=\${${1}_device}
-image_efipart_device=\${${1}_efipart_device}
-image_efipart_mountpoint=\${${1}_efipart_mountpoint}
-image_lvm_vg=\${${1}_lvm_vg}
-image_lvroot_device=\${${1}_lvroot_device}
-image_lvroot_mountpoint=\${${1}_lvroot_mountpoint}
-EOF
-    )"
-
-    # detach things
-    undo mount $image_efipart_device $image_efipart_mountpoint
-    undo mount $image_lvroot_device $image_lvroot_mountpoint
-    undo kpartx -a $image_device
-    undo losetup $image_device "$image_file"
 }
 
 get_efi_partition_size_kb()

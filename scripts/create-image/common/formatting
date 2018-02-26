@@ -40,3 +40,118 @@ make_root_fs()
     features="$(echo $EXT4_FEATURES | tr ' ' ',')"
     mkfs.ext4 -F -q -L ROOT -O "none,$features" -m 2 $1
 }
+
+setup_root_filesystem()
+{
+    part_device=$1
+    mountpoint=$2
+    lvm_vg=$3
+    lv_device=$4
+
+    quiet pvcreate $part_device
+    quiet vgcreate $lvm_vg $part_device
+    quiet lvcreate -n ROOT -l 100%FREE $lvm_vg
+
+    # format this lvm volume
+    make_root_fs $lv_device
+
+    # mount it
+    mkdir "$mountpoint"
+    failsafe mount $lv_device "$mountpoint"
+}
+
+get_partition_devices()
+{
+    image_device="$1"
+    kpartx -l $image_device | awk '{ print "/dev/mapper/"$1 }'
+}
+
+create_formatted_image()
+{
+    image_name=$1   # 'draft' or 'final'
+    stick_size_kb=$2
+    lvm_vg=$3
+    image_file="$4"
+    work_dir="$DBSTCK_TMPDIR/$image_name"
+    if [ -z "$image_file" ]
+    then
+        image_file="$work_dir/file"
+    fi
+
+    mkdir -p "$work_dir"
+
+    # create image file
+    rm -f "$image_file"
+    $DD bs=1024 seek=$stick_size_kb count=0 of="$image_file"
+
+    # call arch_specific formatting function
+    arch_partition_image "$image_file"
+
+    # let the kernel know about this device
+    image_device=$(losetup -f)
+    failsafe losetup $image_device "$image_file"
+    failsafe kpartx -a $image_device
+
+    # retrieve the partition devices
+    partition_devices="$(get_partition_devices $image_device)"
+
+    # the last one will get the OS filesystem
+    root_partition_num="$(echo "$partition_devices" | wc -l)"
+
+    # format and optionally mount partitions
+    i=1
+    for part_device in $(echo "$partition_devices")
+    do
+        mp="$work_dir/part$i"
+        wait_for_device $part_device
+        if [ $i -eq $root_partition_num ]
+        then
+            # root partition
+            root_part_device=$part_device
+            lv_device=/dev/$lvm_vg/ROOT
+            setup_root_filesystem $part_device "$mp" $lvm_vg $lv_device
+            mounts_info="$lv_device $mp $mounts_info"
+        else
+            # other arch-specific partitions
+            if arch_format_partition $i $part_device
+            then
+                mkdir "$mp" && failsafe mount $part_device "$mp"
+                mounts_info="$part_device $mp $mounts_info"
+            fi
+        fi
+        i=$((i+1))
+    done
+
+    # let the calling code know what we have done
+    eval "$(cat << EOF
+${image_name}_file="$image_file"
+${image_name}_device=$image_device
+${image_name}_lvmpart_device="$root_part_device"
+${image_name}_lvroot_mountpoint="$work_dir/part$root_partition_num"
+${image_name}_mounts_info="$mounts_info"
+EOF
+    )"
+}
+
+release_image()
+{
+    image_name="$1"     # 'draft' or 'final'
+
+    # read variables with prefix draft or final
+    eval "$(cat << EOF
+image_file="\${${image_name}_file}"
+image_device=\${${image_name}_device}
+mounts_info=\${${image_name}_mounts_info}
+EOF
+    )"
+
+    # detach things
+    set -- $mounts_info
+    while [ ! -z "$1" ]
+    do
+        undo mount $1 $2
+        shift 2
+    done
+    undo kpartx -a $image_device
+    undo losetup $image_device "$image_file"
+}

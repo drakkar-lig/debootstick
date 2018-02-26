@@ -10,6 +10,7 @@ preliminary_steps()
 final_customization_steps()
 {
     echo -n "I: final image - setting up the EFI boot partition... "
+    final_efipart_mountpoint=$DBSTCK_TMPDIR/final/part1
     mkdir -p $final_efipart_mountpoint/EFI/BOOT
     mv $DBSTCK_TMPDIR/*.efi $final_efipart_mountpoint/EFI/BOOT/
     echo done

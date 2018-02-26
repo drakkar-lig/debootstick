@@ -212,7 +212,7 @@ echo done
 
 # step: create draft image structure
 echo -n "I: draft image - partitioning and formatting... "
-arch_create_formatted_image \
+create_formatted_image \
         draft \
         $draft_stick_size_kb \
         $DRAFT_LVM_VG
@@ -271,7 +271,7 @@ echo done
 
 # prepare a final image with minimal size
 echo -n "I: final image - partitioning and formatting... "
-arch_create_formatted_image \
+create_formatted_image \
         final \
         $final_stick_size_kb \
         ${FINAL_LVM_VG} \
@@ -280,7 +280,7 @@ echo done
 echo -n "I: final image - copying content from draft image... "
 cp -a $draft_lvroot_mountpoint/* $final_lvroot_mountpoint/
 echo done
-arch_release_image draft     # not needed anymore
+release_image draft     # not needed anymore
 
 # add the dbstck.conf file
 cat > $final_lvroot_mountpoint/dbstck.conf << EOF

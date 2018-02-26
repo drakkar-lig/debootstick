@@ -14,12 +14,12 @@ arch_final_customization_steps() {
 # for details about the following functions
 # see 'formatting' file
 
-arch_create_formatted_image() {
-    create_formatted_image $@
+arch_partition_image() {
+    partition_image $@
 }
 
-arch_release_image() {
-    release_image $@
+arch_format_partition() {
+    format_partition $@
 }
 
 # for details about the following functions
