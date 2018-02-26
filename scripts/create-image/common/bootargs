@@ -1,0 +1,36 @@
+# vim: filetype=sh
+
+# kernel command line customization
+# ---------------------------------
+
+add_bootarg()
+{
+    cmdline="$cmdline $1"
+}
+
+del_bootarg()
+{
+    cmdline="$(echo "$cmdline" | sed -e "s/\b$1\b//g")"
+}
+
+update_kernel_cmdline()
+{
+    cmdline="$1"
+    shift
+    for bootarg in "$@"
+    do
+        bootargmod="$(echo "$bootarg" | cut -c2-)"
+        case "$bootarg" in
+            +*)
+                add_bootarg "$bootargmod"
+                ;;
+            -*)
+                del_bootarg "$bootargmod"
+                ;;
+            *)
+                add_bootarg "$bootarg"
+                ;;
+        esac
+    done
+    echo "$cmdline"
+}

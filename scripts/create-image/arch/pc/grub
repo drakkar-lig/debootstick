@@ -28,17 +28,6 @@ END_MAP
     cd - >/dev/null
 }
 
-add_bootarg()
-{
-    GRUB_CMDLINE_LINUX="$GRUB_CMDLINE_LINUX $1"
-}
-
-del_bootarg()
-{
-    GRUB_CMDLINE_LINUX="$(echo "$GRUB_CMDLINE_LINUX" | sed -e "s/\b$1\b//g")"
-    GRUB_CMDLINE_LINUX_DEFAULT="$(echo "$GRUB_CMDLINE_LINUX_DEFAULT" | sed -e "s/\b$1\b//g")"
-}
-
 # * customize boot parameters
 # * fix obsolete options in /etc/default/grub
 #   (https://bugs.launchpad.net/ubuntu/+source/grub2/+bug/1258597)
@@ -47,21 +36,15 @@ update_grub_conf()
     . /etc/default/grub
     GRUB_CMDLINE_LINUX="$GRUB_CMDLINE_LINUX rootdelay=3"
 
-    for bootarg in "$@"
-    do
-        bootargmod="$(echo "$bootarg" | cut -c2-)"
-        case "$bootarg" in
-            +*)
-                add_bootarg "$bootargmod"
-                ;;
-            -*)
-                del_bootarg "$bootargmod"
-                ;;
-            *)
-                add_bootarg "$bootarg"
-                ;;
-        esac
-    done
+    # the user may add a bootarg by specifying a modifier "<bootarg>" or "+<bootarg>"
+    # and delete a bootarg by specifying a modifier "-<bootarg>"
+    # In the case of grub, we add bootargs to grub's GRUB_CMDLINE_LINUX variable.
+    # However, when deleting a bootarg, it may actually be in GRUB_CMDLINE_LINUX_DEFAULT too.
+
+    GRUB_CMDLINE_LINUX="$(update_kernel_cmdline "$GRUB_CMDLINE_LINUX" "$@")"
+
+    only_minus_modifiers="$(echo "$@" | tr ' ' '\n' | happy_grep '^-')"
+    GRUB_CMDLINE_LINUX_DEFAULT="$(update_kernel_cmdline "$GRUB_CMDLINE_LINUX_DEFAULT" $only_minus_modifiers)"
 
     sed -i -e "s/GRUB_CMDLINE_LINUX=.*/GRUB_CMDLINE_LINUX=\"$GRUB_CMDLINE_LINUX\"/" \
            -e "s/GRUB_CMDLINE_LINUX_DEFAULT=.*/GRUB_CMDLINE_LINUX_DEFAULT=\"$GRUB_CMDLINE_LINUX_DEFAULT\"/" \
