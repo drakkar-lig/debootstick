@@ -14,7 +14,7 @@ failsafe_mount_sys_and_dev
 
 if $arch_prepare_rootfs_exists
 then
-    arch_prepare_rootfs
+    arch_prepare_rootfs final inside
 fi
 
 echo -n "I: final image - setting up the bootloader... "
@@ -23,7 +23,7 @@ echo done
 
 if $arch_cleanup_rootfs_exists
 then
-    arch_cleanup_rootfs
+    arch_cleanup_rootfs final inside
 fi
 
 # umount things

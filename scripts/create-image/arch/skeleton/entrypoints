@@ -46,14 +46,19 @@ arch_install_bootloader() {
     install_bootloader
 }
 
-#arch_prepare_rootfs() {
-#    prepare_rootfs
-#}
-
-#arch_cleanup_rootfs() {
-#    cleanup_rootfs
-#}
-
 #arch_get_bootloader_install_command() {
 #    echo my-bootloader-install
 #}
+
+# for details about the following functions
+# see 'rootfs' file
+# (these functions are also optional, but
+# often needed.)
+
+arch_prepare_rootfs() {
+    prepare_rootfs $@
+}
+
+arch_cleanup_rootfs() {
+    cleanup_rootfs $@
+}

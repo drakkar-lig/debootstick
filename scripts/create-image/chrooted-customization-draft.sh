@@ -29,7 +29,7 @@ export DEBIAN_FRONTEND=noninteractive LANG=C
 
 if $arch_prepare_rootfs_exists
 then
-    arch_prepare_rootfs
+    arch_prepare_rootfs draft inside
 fi
 
 if $arch_custom_packages_exists
@@ -163,7 +163,7 @@ fi
 
 if $arch_cleanup_rootfs_exists
 then
-    arch_cleanup_rootfs
+    arch_cleanup_rootfs draft inside
 fi
 # umount all
 undo_all

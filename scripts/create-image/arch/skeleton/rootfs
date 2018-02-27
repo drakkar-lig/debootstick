@@ -1,0 +1,15 @@
+# vim: filetype=sh
+
+prepare_rootfs()
+{
+    image_type="$1"     # draft or final
+    chroot_status="$2"  # inside or outside
+    # do something...
+}
+
+cleanup_rootfs()
+{
+    image_type="$1"     # draft or final
+    chroot_status="$2"  # inside or outside
+    # do something...
+}

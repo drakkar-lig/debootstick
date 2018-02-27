@@ -45,11 +45,21 @@ arch_install_bootloader() {
 }
 
 arch_prepare_rootfs() {
-    prepare_rootfs
+    image_type="$1"
+    chroot_status="$2"
+    if [ "$chroot_status" = "inside" ]
+    then
+        prepare_rootfs
+    fi
 }
 
 arch_cleanup_rootfs() {
-    cleanup_rootfs
+    image_type="$1"
+    chroot_status="$2"
+    if [ "$chroot_status" = "inside" ]
+    then
+        cleanup_rootfs
+    fi
 }
 
 arch_get_bootloader_install_command() {

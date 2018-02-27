@@ -223,8 +223,16 @@ echo -n "I: draft image - copying filesystem tree... "
 cd $draft_lvroot_mountpoint
 cp -a $ORIG_TREE/* .
 echo done
+
 # 2nd level of checks of input file hierarchy
 check_fs_hierarchy "$PWD" 2 || exit 1
+
+# execute arch-specific preparation steps, if any
+if $arch_prepare_rootfs_exists
+then
+    arch_prepare_rootfs draft outside
+fi
+
 mkdir -p opt/debootstick
 cp -a $DBSTCK_DIR/scripts/live opt/debootstick/live
 cp -a $DBSTCK_DIR/scripts/create-image/chrooted-customization-draft.sh .
@@ -246,6 +254,12 @@ cd ..
 
 # step: finalyse filesystem setup
 finalize_fs $draft_lvroot_mountpoint
+
+# execute arch-specific cleanup steps, if any
+if $arch_cleanup_rootfs_exists
+then
+    arch_cleanup_rootfs draft outside
+fi
 
 # step: compute minimal size of final stick
 echo -n "I: final image - computing minimal image size... "
@@ -292,6 +306,13 @@ EOF
 
 # step: customize final OS
 cd $final_lvroot_mountpoint
+
+# execute arch-specific preparation steps, if any
+if $arch_prepare_rootfs_exists
+then
+    arch_prepare_rootfs final outside
+fi
+
 # since the size of the filesystem mounted there is minimized,
 # creating new files may cause problems.
 # so we will use the directory /tmp that we mount in memory.
@@ -299,6 +320,13 @@ with mount -t tmpfs none $final_lvroot_mountpoint/tmp; do
     cp -a $DBSTCK_DIR/scripts/create-image/chrooted-customization-final.sh tmp
     chroot . tmp/chrooted-customization-final.sh "$final_device"
 done
+
+# execute arch-specific cleanup steps, if any
+if $arch_cleanup_rootfs_exists
+then
+    arch_cleanup_rootfs final outside
+fi
+
 cd ..
 
 # execute arch-specific final steps, if any
