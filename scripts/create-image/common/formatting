@@ -98,8 +98,8 @@ create_formatted_image()
     rm -f "$image_file"
     $DD bs=1024 seek=$stick_size_kb count=0 of="$image_file"
 
-    # call arch_specific formatting function
-    arch_partition_image "$image_file"
+    # call target_specific formatting function
+    target_partition_image "$image_file"
 
     # let the kernel know about this device
     image_device=$(losetup -f)
@@ -123,7 +123,7 @@ create_formatted_image()
             mp="$work_dir/rootfs"
             root_part_device=$part_device
             rootfs_label="$(get_rootfs_label $stick_os_id)"
-            if $(arch_use_lvm)
+            if $(target_use_lvm)
             then
                 lvm_vg="$(get_vg_name $image_name $stick_os_id)"
                 lv_device=/dev/$lvm_vg/ROOT
@@ -136,8 +136,8 @@ create_formatted_image()
             fi
         else
             mp="$work_dir/part$i"
-            # other arch-specific partitions
-            if arch_format_partition $i $part_device
+            # other target-specific partitions
+            if target_format_partition $i $part_device
             then
                 mkdir "$mp" && failsafe mount $part_device "$mp"
                 mounts_info="$part_device $mp $mounts_info"
@@ -185,7 +185,7 @@ estimate_minimal_rootpart_size_kb()
     rootfs_mountpoint="$1"
     data_size_kb=$(estimated_size_kb "$rootfs_mountpoint")
     overheads=$EXT4_OVERHEAD_PERCENT
-    if $(arch_use_lvm)
+    if $(target_use_lvm)
     then
         overheads="$overheads $LVM_OVERHEAD_PERCENT"
     fi

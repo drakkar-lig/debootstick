@@ -121,34 +121,34 @@ fi
 # file hierarchy (1st level of checks)
 check_fs_hierarchy "$chroot_in" 1 || exit 1
 
-# detect arch type
-arch_type="$(detect_arch_type "$chroot_in")"
-[ -z "$arch_type" ] && exit 1
+# detect target type
+target_type="$(detect_target_type "$chroot_in")"
+[ -z "$target_type" ] && exit 1
 
-# get common and arch-specific functions
+# get common and target-specific functions
 functions="$(
-    cat "$DBSTCK_DIR"/scripts/create-image/common/* $arch_scripts
-    cat $(find "$DBSTCK_DIR"/scripts/create-image/arch/$arch_type/ \
+    cat "$DBSTCK_DIR"/scripts/create-image/common/*
+    cat $(find "$DBSTCK_DIR"/scripts/create-image/target/$target_type/ \
                     -type f ! -name detect.sh)
 )"
 
 # have them available here and in chrooted scripts
 eval "$functions"
 export chrooted_functions="$functions"
-probe_arch_optional_functions
+probe_target_optional_functions
 
-if $arch_get_bootloader_install_command_exists
+if $target_get_bootloader_install_command_exists
 then
-    bootloader_install_command=$(arch_get_bootloader_install_command)
+    bootloader_install_command=$(target_get_bootloader_install_command)
 fi
 
 if [ "$system_type" = "installer" ]
 then
-    if [ -z "$bootloader_install_command" ] || ! $(arch_use_lvm)
+    if [ -z "$bootloader_install_command" ] || ! $(target_use_lvm)
     then
-        # cannot use installer mode if arch does not use LVM or does not
+        # cannot use installer mode if target does not use LVM or does not
         # specify a bootloader installation procedure.
-        echo "Sorry, this architecture does not support installer system type." >&2
+        echo "Sorry, this target does not support installer system type." >&2
         exit 1
     fi
 fi
@@ -197,10 +197,10 @@ start_failsafe_mode --toplevel final_cleanup
 failsafe mkdir -p $DBSTCK_TMPDIR
 cd $DBSTCK_TMPDIR
 
-# execute arch-specific preliminary steps, if any
-if $arch_preliminary_steps_exists
+# execute target-specific preliminary steps, if any
+if $target_preliminary_steps_exists
 then
-    arch_preliminary_steps
+    target_preliminary_steps
 fi
 
 # step: compute a stick size large enough for our work
@@ -228,10 +228,10 @@ echo done
 # 2nd level of checks of input file hierarchy
 check_fs_hierarchy "$PWD" 2 || exit 1
 
-# execute arch-specific preparation steps, if any
-if $arch_prepare_rootfs_exists
+# execute target-specific preparation steps, if any
+if $target_prepare_rootfs_exists
 then
-    arch_prepare_rootfs draft outside
+    target_prepare_rootfs draft outside
 fi
 
 mkdir -p opt/debootstick
@@ -256,10 +256,10 @@ cd ..
 # step: finalyse filesystem setup
 finalize_fs $draft_rootfs_mountpoint
 
-# execute arch-specific cleanup steps, if any
-if $arch_cleanup_rootfs_exists
+# execute target-specific cleanup steps, if any
+if $target_cleanup_rootfs_exists
 then
-    arch_cleanup_rootfs draft outside
+    target_cleanup_rootfs draft outside
 fi
 
 # step: compute minimal size of final stick
@@ -299,7 +299,7 @@ release_image draft     # not needed anymore
 # add the dbstck.conf file
 cat > $final_rootfs_mountpoint/dbstck.conf << EOF
 STICK_OS_ID=$STICK_OS_ID
-USE_LVM=$(arch_use_lvm)
+USE_LVM=$(target_use_lvm)
 SYSTEM_TYPE=$system_type
 ASK_ROOT_PASSWORD_ON_FIRST_BOOT=$root_password_on_first_boot
 BOOTLOADER_INSTALL=$bootloader_install_command
@@ -308,10 +308,10 @@ EOF
 # step: customize final OS
 cd $final_rootfs_mountpoint
 
-# execute arch-specific preparation steps, if any
-if $arch_prepare_rootfs_exists
+# execute target-specific preparation steps, if any
+if $target_prepare_rootfs_exists
 then
-    arch_prepare_rootfs final outside
+    target_prepare_rootfs final outside
 fi
 
 # since the size of the filesystem mounted there is minimized,
@@ -322,18 +322,18 @@ with mount -t tmpfs none $final_rootfs_mountpoint/tmp; do
     chroot . tmp/chrooted-customization-final.sh "$final_device"
 done
 
-# execute arch-specific cleanup steps, if any
-if $arch_cleanup_rootfs_exists
+# execute target-specific cleanup steps, if any
+if $target_cleanup_rootfs_exists
 then
-    arch_cleanup_rootfs final outside
+    target_cleanup_rootfs final outside
 fi
 
 cd ..
 
-# execute arch-specific final steps, if any
-if $arch_final_customization_steps_exists
+# execute target-specific final steps, if any
+if $target_final_customization_steps_exists
 then
-    arch_final_customization_steps
+    target_final_customization_steps
 fi
 
 # step: clean up

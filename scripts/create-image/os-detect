@@ -50,10 +50,10 @@ check_fs_hierarchy()
     esac
 }
 
-detect_arch_type()
+detect_target_type()
 {
     fs_tree="$1"
-    dir="$DBSTCK_DIR/scripts/create-image/arch"
+    dir="$DBSTCK_DIR/scripts/create-image/target"
     for subdir in $(ls "$dir")
     do
         "$dir/$subdir/detect.sh" "$fs_tree" >/dev/null && {

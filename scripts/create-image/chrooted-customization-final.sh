@@ -12,18 +12,18 @@ export DEBIAN_FRONTEND=noninteractive LANG=C
 failsafe mount -t proc none /proc
 failsafe_mount_sys_and_dev
 
-if $arch_prepare_rootfs_exists
+if $target_prepare_rootfs_exists
 then
-    arch_prepare_rootfs final inside
+    target_prepare_rootfs final inside
 fi
 
 echo -n "I: final image - setting up the bootloader... "
-arch_install_bootloader
+target_install_bootloader
 echo done
 
-if $arch_cleanup_rootfs_exists
+if $target_cleanup_rootfs_exists
 then
-    arch_cleanup_rootfs final inside
+    target_cleanup_rootfs final inside
 fi
 
 # umount things

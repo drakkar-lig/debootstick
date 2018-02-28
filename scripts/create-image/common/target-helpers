@@ -1,0 +1,20 @@
+# vim: filetype=sh
+
+# this must be called by bash (sh has no 'declare' command)
+has_function() {
+    if declare -f $1 >/dev/null
+    then
+        echo true
+    else
+        echo false
+    fi
+}
+
+probe_target_optional_functions() {
+    export target_preliminary_steps_exists=$(has_function target_preliminary_steps)
+    export target_final_customization_steps_exists=$(has_function target_final_customization_steps)
+    export target_prepare_rootfs_exists=$(has_function target_prepare_rootfs)
+    export target_cleanup_rootfs_exists=$(has_function target_cleanup_rootfs)
+    export target_custom_packages_exists=$(has_function target_custom_packages)
+    export target_get_bootloader_install_command_exists=$(has_function target_get_bootloader_install_command)
+}

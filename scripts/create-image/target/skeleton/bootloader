@@ -4,7 +4,7 @@
 # ---------------------
 
 # configure the bootloader appropriately, given the variable $kernel_bootargs
-# and any other arch-specific requirements.
+# and any other target-specific requirements.
 
 configure_bootloader()
 {

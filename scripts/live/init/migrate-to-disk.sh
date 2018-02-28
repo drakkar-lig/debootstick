@@ -9,7 +9,7 @@ echo "** ---- INSTALLER MODE -------------------"
 if ! $USE_LVM
 then
     echo "** ERROR: Root filesystem is not built on LVM!"
-    echo "** ERROR: Installer mode seems broken on this architecture."
+    echo "** ERROR: Installer mode seems broken on this target."
     echo "Aborted!"
     exit 1
 fi
@@ -17,7 +17,7 @@ fi
 if [ -z "$BOOTLOADER_INSTALL" ]
 then
     echo "** ERROR: Unknown bootloader installation procedure!"
-    echo "** ERROR: Installer mode seems broken on this architecture."
+    echo "** ERROR: Installer mode seems broken on this target."
     echo "Aborted!"
     exit 1
 fi
@@ -30,7 +30,7 @@ next_part_num=$(get_next_part_num $ORIGIN)
 if [ "$next_part_num" -ne "$(($pv_part_num+1))" ]
 then
     echo "** ERROR: LVM physical volume is not the last partition!"
-    echo "** ERROR: Installer mode seems broken on this architecture."
+    echo "** ERROR: Installer mode seems broken on this target."
     echo "Aborted!"
     exit 1
 fi

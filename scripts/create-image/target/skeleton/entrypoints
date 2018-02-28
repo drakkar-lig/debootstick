@@ -3,59 +3,59 @@
 # Note: commented functions are optional.
 
 # system-type=installer option support requires:
-# 1- arch_use_lvm() to echo true
-# 2- arch_get_bootloader_install_command() to echo
+# 1- target_use_lvm() to echo true
+# 2- target_get_bootloader_install_command() to echo
 #    an appropriate command (e.g. grub-install)
 
-arch_use_lvm() {
+target_use_lvm() {
     echo false
 }
 
 # for details about the following functions
 # see 'steps' file
 
-#arch_preliminary_steps() {
+#target_preliminary_steps() {
 #    preliminary_steps
 #}
 
-#arch_final_customization_steps() {
+#target_final_customization_steps() {
 #    final_customization_steps
 #}
 
 # for details about the following functions
 # see 'formatting' file
 
-arch_partition_image() {
+target_partition_image() {
     partition_image $@
 }
 
-arch_format_partition() {
+target_format_partition() {
     format_partition $@
 }
 
 # for details about the following functions
 # see 'packages' file
 
-arch_kernel_default_package() {
+target_kernel_default_package() {
     kernel_default_package
 }
 
-#arch_custom_packages() {
+#target_custom_packages() {
 #    custom_packages
 #}
 
 # for details about the following functions
 # see 'bootloader' file
 
-arch_configure_bootloader() {
+target_configure_bootloader() {
     configure_bootloader
 }
 
-arch_install_bootloader() {
+target_install_bootloader() {
     install_bootloader
 }
 
-#arch_get_bootloader_install_command() {
+#target_get_bootloader_install_command() {
 #    echo my-bootloader-install
 #}
 
@@ -64,10 +64,10 @@ arch_install_bootloader() {
 # (these functions are also optional, but
 # often needed.)
 
-arch_prepare_rootfs() {
+target_prepare_rootfs() {
     prepare_rootfs $@
 }
 
-arch_cleanup_rootfs() {
+target_cleanup_rootfs() {
     cleanup_rootfs $@
 }

@@ -1,54 +1,54 @@
 # vim: filetype=sh
 
-arch_use_lvm() {
+target_use_lvm() {
     echo true
 }
 
 # for details about the following functions
 # see 'steps' file
 
-arch_preliminary_steps() {
+target_preliminary_steps() {
     preliminary_steps
 }
 
-arch_final_customization_steps() {
+target_final_customization_steps() {
     final_customization_steps
 }
 
 # for details about the following functions
 # see 'formatting' file
 
-arch_partition_image() {
+target_partition_image() {
     partition_image $@
 }
 
-arch_format_partition() {
+target_format_partition() {
     format_partition $@
 }
 
 # for details about the following functions
 # see 'packages' file
 
-arch_kernel_default_package() {
+target_kernel_default_package() {
     kernel_default_package
 }
 
-arch_custom_packages() {
+target_custom_packages() {
     custom_packages
 }
 
 # for details about the following functions
 # see 'grub' file
 
-arch_configure_bootloader() {
+target_configure_bootloader() {
     configure_bootloader
 }
 
-arch_install_bootloader() {
+target_install_bootloader() {
     install_bootloader
 }
 
-arch_prepare_rootfs() {
+target_prepare_rootfs() {
     image_type="$1"
     chroot_status="$2"
     if [ "$chroot_status" = "inside" ]
@@ -57,7 +57,7 @@ arch_prepare_rootfs() {
     fi
 }
 
-arch_cleanup_rootfs() {
+target_cleanup_rootfs() {
     image_type="$1"
     chroot_status="$2"
     if [ "$chroot_status" = "inside" ]
@@ -66,6 +66,6 @@ arch_cleanup_rootfs() {
     fi
 }
 
-arch_get_bootloader_install_command() {
+target_get_bootloader_install_command() {
     echo grub-install
 }

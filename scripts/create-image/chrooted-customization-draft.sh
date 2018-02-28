@@ -27,14 +27,14 @@ failsafe mount -t proc none /proc
 failsafe_mount_sys_and_dev
 export DEBIAN_FRONTEND=noninteractive LANG=C
 
-if $arch_prepare_rootfs_exists
+if $target_prepare_rootfs_exists
 then
-    arch_prepare_rootfs draft inside
+    target_prepare_rootfs draft inside
 fi
 
-if $arch_custom_packages_exists
+if $target_custom_packages_exists
 then
-    PACKAGES="$PACKAGES $(arch_custom_packages)"
+    PACKAGES="$PACKAGES $(target_custom_packages)"
 fi
 
 # install missing packages
@@ -45,7 +45,7 @@ echo done
 if [ -z "$kernel_package" ]
 then
     # kernel package not specified, install a default one
-    kernel_search_regexp="^$(arch_kernel_default_package)$"
+    kernel_search_regexp="^$(target_kernel_default_package)$"
     error_if_missing="$(
         echo "E: no linux kernel package found."
         echo "E: Run 'debootstick --help-os-support' for more info."
@@ -119,14 +119,14 @@ case "$root_password_request" in
 esac
 
 echo -n "I: draft image - setting up bootloader... "
-arch_configure_bootloader
+target_configure_bootloader
 
 # installing grub on this temporary work-image
 # may not seem useful (it will be repeated on the final
 # stick anyway), but actually it is:
 # the files created there should be accounted when
 # estimating the final stick minimal size).
-arch_install_bootloader
+target_install_bootloader
 
 echo done
 
@@ -161,9 +161,9 @@ then
     echo done
 fi
 
-if $arch_cleanup_rootfs_exists
+if $target_cleanup_rootfs_exists
 then
-    arch_cleanup_rootfs draft inside
+    target_cleanup_rootfs draft inside
 fi
 # umount all
 undo_all
