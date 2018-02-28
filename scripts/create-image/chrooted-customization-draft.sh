@@ -1,6 +1,7 @@
 #!/bin/sh
 PACKAGES="lvm2 gdisk e2fsprogs"
 eval "$chrooted_functions"
+probe_target_optional_functions
 start_failsafe_mode
 # in the chroot commands should use /tmp for temporary files
 export TMPDIR=/tmp
@@ -27,10 +28,7 @@ failsafe mount -t proc none /proc
 failsafe_mount_sys_and_dev
 export DEBIAN_FRONTEND=noninteractive LANG=C
 
-if $target_prepare_rootfs_exists
-then
-    target_prepare_rootfs draft inside
-fi
+optional_target_prepare_rootfs draft inside
 
 if $target_custom_packages_exists
 then
@@ -161,10 +159,7 @@ then
     echo done
 fi
 
-if $target_cleanup_rootfs_exists
-then
-    target_cleanup_rootfs draft inside
-fi
+optional_target_cleanup_rootfs draft inside
 # umount all
 undo_all
 

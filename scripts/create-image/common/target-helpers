@@ -1,20 +1,52 @@
 # vim: filetype=sh
 
-# this must be called by bash (sh has no 'declare' command)
+# this must be called by bash once, first
+# (sh has no 'declare' command)
 has_function() {
-    if declare -f $1 >/dev/null
+    func_name="$1"
+
+    # check if we have the answer already
+    precomputed=$(eval "echo \$${func_name}_exists")
+
+    if [ -z "$precomputed" ]
     then
-        echo true
+        if declare -f $func_name >/dev/null
+        then
+            echo true
+        else
+            echo false
+        fi
     else
-        echo false
+        echo $precomputed
     fi
 }
 
+setup_optional_function() {
+    func_name="$1"
+    if $(has_function $func_name)
+    then
+        eval "${func_name}_exists=true"
+        eval "optional_$func_name() { $func_name \$@; }"
+    else
+        eval "${func_name}_exists=false"
+        eval "optional_$func_name() { true; }"
+    fi
+    export "${func_name}_exists"
+}
+
+TARGET_OPTIONAL_FUNCTIONS="$(cat << EOF
+target_preliminary_steps
+target_final_customization_steps
+target_prepare_rootfs
+target_cleanup_rootfs
+target_custom_packages
+target_get_bootloader_install_command
+EOF
+)"
+
 probe_target_optional_functions() {
-    export target_preliminary_steps_exists=$(has_function target_preliminary_steps)
-    export target_final_customization_steps_exists=$(has_function target_final_customization_steps)
-    export target_prepare_rootfs_exists=$(has_function target_prepare_rootfs)
-    export target_cleanup_rootfs_exists=$(has_function target_cleanup_rootfs)
-    export target_custom_packages_exists=$(has_function target_custom_packages)
-    export target_get_bootloader_install_command_exists=$(has_function target_get_bootloader_install_command)
+    for func in $TARGET_OPTIONAL_FUNCTIONS
+    do
+        setup_optional_function $func
+    done
 }
