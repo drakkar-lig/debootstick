@@ -126,8 +126,8 @@ create_formatted_image()
     eval "$(cat << EOF
 ${image_name}_file="$image_file"
 ${image_name}_device=$image_device
-${image_name}_lvmpart_device="$root_part_device"
-${image_name}_lvroot_mountpoint="$work_dir/part$root_partition_num"
+${image_name}_rootpart_device="$root_part_device"
+${image_name}_rootfs_mountpoint="$work_dir/part$root_partition_num"
 ${image_name}_mounts_info="$mounts_info"
 EOF
     )"

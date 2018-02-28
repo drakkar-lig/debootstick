@@ -220,7 +220,7 @@ echo done
 
 # step: copy original tree to work image and modify it
 echo -n "I: draft image - copying filesystem tree... "
-cd $draft_lvroot_mountpoint
+cd $draft_rootfs_mountpoint
 cp -a $ORIG_TREE/* .
 echo done
 
@@ -253,7 +253,7 @@ rm ./chrooted-customization-draft.sh
 cd ..
 
 # step: finalyse filesystem setup
-finalize_fs $draft_lvroot_mountpoint
+finalize_fs $draft_rootfs_mountpoint
 
 # execute arch-specific cleanup steps, if any
 if $arch_cleanup_rootfs_exists
@@ -264,20 +264,20 @@ fi
 # step: compute minimal size of final stick
 echo -n "I: final image - computing minimal image size... "
 cd $DBSTCK_TMPDIR
-data_size_kb=$(estimated_size_kb $draft_lvroot_mountpoint)
-final_lvmpart_size_kb=$(apply_overheads_percent $data_size_kb \
+data_size_kb=$(estimated_size_kb $draft_rootfs_mountpoint)
+final_rootpart_size_kb=$(apply_overheads_percent $data_size_kb \
         $FS_OVERHEAD_PERCENT $LVM_OVERHEAD_PERCENT)
-draft_lvmpart_size_kb=$(device_size_kb $draft_lvmpart_device)
+draft_rootpart_size_kb=$(device_size_kb $draft_rootpart_device)
 # since the draft and final images are formatted the
-# same way (only the size of the lvm part differs),
-# (final_stick_size_kb - final_lvmpart_size_kb)
+# same way (only the size of the root partition differs),
+# (final_stick_size_kb - final_rootpart_size_kb)
 # should be equal to
-# (draft_stick_size_kb - draft_lvmpart_size_kb)
+# (draft_stick_size_kb - draft_rootpart_size_kb)
 # let's compute final_stick_size_kb accordingly:
 final_stick_size_kb=$((
-        final_lvmpart_size_kb +
+        final_rootpart_size_kb +
         draft_stick_size_kb -
-        draft_lvmpart_size_kb
+        draft_rootpart_size_kb
 ))
 echo done
 
@@ -292,12 +292,12 @@ create_formatted_image \
         $final_image_abspath
 echo done
 echo -n "I: final image - copying content from draft image... "
-cp -a $draft_lvroot_mountpoint/* $final_lvroot_mountpoint/
+cp -a $draft_rootfs_mountpoint/* $final_rootfs_mountpoint/
 echo done
 release_image draft     # not needed anymore
 
 # add the dbstck.conf file
-cat > $final_lvroot_mountpoint/dbstck.conf << EOF
+cat > $final_rootfs_mountpoint/dbstck.conf << EOF
 LVM_VG=$FINAL_LVM_VG
 SYSTEM_TYPE=$system_type
 ASK_ROOT_PASSWORD_ON_FIRST_BOOT=$root_password_on_first_boot
@@ -305,7 +305,7 @@ BOOTLOADER_INSTALL=$bootloader_install_command
 EOF
 
 # step: customize final OS
-cd $final_lvroot_mountpoint
+cd $final_rootfs_mountpoint
 
 # execute arch-specific preparation steps, if any
 if $arch_prepare_rootfs_exists
@@ -316,7 +316,7 @@ fi
 # since the size of the filesystem mounted there is minimized,
 # creating new files may cause problems.
 # so we will use the directory /tmp that we mount in memory.
-with mount -t tmpfs none $final_lvroot_mountpoint/tmp; do
+with mount -t tmpfs none $final_rootfs_mountpoint/tmp; do
     cp -a $DBSTCK_DIR/scripts/create-image/chrooted-customization-final.sh tmp
     chroot . tmp/chrooted-customization-final.sh "$final_device"
 done
