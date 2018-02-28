@@ -131,7 +131,7 @@ arch_install_bootloader
 echo done
 
 echo -n "I: draft image - updating fstab... "
-update_fstab $final_lvm_vg
+update_fstab $stick_os_id
 echo done
 
 if [ "$config_hostname" != "" ]

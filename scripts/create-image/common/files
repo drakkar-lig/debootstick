@@ -2,7 +2,8 @@
 
 update_fstab()
 {
-    final_root_device="/dev/$1/ROOT"
+    stick_os_id="$1"
+    rootfs_label="$(get_rootfs_label $stick_os_id)"
 
     # remove the line with "UNCONFIGURED"
     # and add or update the line mounting /
@@ -11,7 +12,7 @@ update_fstab()
                         happy_grep -vw "/"
     )
     cat > /etc/fstab << EOF
-$final_root_device / ext4 errors=remount-ro 0 1
+LABEL=$rootfs_label / ext4 errors=remount-ro 0 1
 $filtered_content
 EOF
 }

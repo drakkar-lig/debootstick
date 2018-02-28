@@ -1,5 +1,9 @@
 # vim: filetype=sh
 
+arch_use_lvm() {
+    echo true
+}
+
 # for details about the following functions
 # see 'steps' file
 

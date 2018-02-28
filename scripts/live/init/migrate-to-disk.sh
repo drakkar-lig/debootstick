@@ -6,13 +6,9 @@ THIS_DIR=$(cd $(dirname $0); pwd)
 
 clear
 echo "** ---- INSTALLER MODE -------------------"
-ORIGIN=$(get_booted_device $LVM_VG)
-pv_part_num=$(get_pv_part_num $ORIGIN)
-next_part_num=$(get_next_part_num $ORIGIN)
-
-if [ "$next_part_num" -ne "$(($pv_part_num+1))" ] 
+if ! $USE_LVM
 then
-    echo "** ERROR: LVM physical volume is not the last partition!"
+    echo "** ERROR: Root filesystem is not built on LVM!"
     echo "** ERROR: Installer mode seems broken on this architecture."
     echo "Aborted!"
     exit 1
@@ -21,6 +17,19 @@ fi
 if [ -z "$BOOTLOADER_INSTALL" ]
 then
     echo "** ERROR: Unknown bootloader installation procedure!"
+    echo "** ERROR: Installer mode seems broken on this architecture."
+    echo "Aborted!"
+    exit 1
+fi
+
+LVM_VG=$(get_vg_name $STICK_OS_ID)
+ORIGIN=$(get_booted_device_from_vg $LVM_VG)
+pv_part_num=$(get_pv_part_num $ORIGIN)
+next_part_num=$(get_next_part_num $ORIGIN)
+
+if [ "$next_part_num" -ne "$(($pv_part_num+1))" ]
+then
+    echo "** ERROR: LVM physical volume is not the last partition!"
     echo "** ERROR: Installer mode seems broken on this architecture."
     echo "Aborted!"
     exit 1

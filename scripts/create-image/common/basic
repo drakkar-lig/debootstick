@@ -98,3 +98,20 @@ wait_for_device()
 		sleep 0.1
 	done
 }
+
+get_vg_name()
+{
+    case "$1" in
+        "draft")
+            echo "DRAFT-$2"
+            ;;
+        "final")
+            echo "DBSTCK-$2"
+            ;;
+    esac
+}
+
+get_rootfs_label()
+{
+    echo "ROOT-$1"
+}

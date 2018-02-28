@@ -47,11 +47,31 @@ show_progress_bar()
 }
 
 # find device currently being booted
-get_booted_device()
+part_to_disk()
+{
+    echo $1 | sed -e "s/.$//"
+}
+
+get_part_num()
+{
+    echo -n $1 | tail -c 1
+}
+
+get_booted_device_from_vg()
 {
     lvm_vg="$1"
     set -- $(pvs | grep $lvm_vg)
-    echo $(echo $1 | sed -e "s/.$//")
+    part_to_disk $1
+}
+
+vg_has_free_space()
+{
+    if [ "x$(vgs -o vg_free --noheadings --nosuffix $1 \
+                | tr -d [:blank:])" != "x0" ]; then
+        echo true
+    else
+        echo false
+    fi
 }
 
 # partx does not report the type the same way on all systems
@@ -238,3 +258,7 @@ restore_lvm_conf()
     mv /etc/lvm/lvm.conf.saved /etc/lvm/lvm.conf
 }
 
+get_vg_name()
+{
+    echo "DBSTCK-$1"
+}

@@ -28,6 +28,8 @@
 # Since this option is not handled by grub, it prevents the
 # system from booting properly.
 
+EXT4_OVERHEAD_PERCENT=18
+LVM_OVERHEAD_PERCENT=4
 EXT4_FEATURES=$(cat << EOF
 has_journal ext_attr resize_inode dir_index filetype extent
 flex_bg sparse_super large_file huge_file uninit_bg dir_nlink
@@ -37,27 +39,39 @@ EOF
 
 make_root_fs()
 {
+    rootfs_device=$1
+    rootfs_label=$2
     features="$(echo $EXT4_FEATURES | tr ' ' ',')"
-    mkfs.ext4 -F -q -L ROOT -O "none,$features" -m 2 $1
+    mkfs.ext4 -F -q -L $rootfs_label -O "none,$features" -m 2 $rootfs_device
 }
 
 setup_root_filesystem()
+{
+    root_device=$1
+    mountpoint=$2
+    rootfs_label=$3
+
+    # format this lvm volume
+    make_root_fs $root_device $rootfs_label
+
+    # mount it
+    mkdir "$mountpoint"
+    failsafe mount $root_device "$mountpoint"
+}
+
+setup_root_filesystem_on_lvm()
 {
     part_device=$1
     mountpoint=$2
     lvm_vg=$3
     lv_device=$4
+    rootfs_label=$5
 
     quiet pvcreate $part_device
     quiet vgcreate $lvm_vg $part_device
     quiet lvcreate -n ROOT -l 100%FREE $lvm_vg
 
-    # format this lvm volume
-    make_root_fs $lv_device
-
-    # mount it
-    mkdir "$mountpoint"
-    failsafe mount $lv_device "$mountpoint"
+    setup_root_filesystem $lv_device $mountpoint $rootfs_label
 }
 
 get_partition_devices()
@@ -70,7 +84,7 @@ create_formatted_image()
 {
     image_name=$1   # 'draft' or 'final'
     stick_size_kb=$2
-    lvm_vg=$3
+    stick_os_id=$3
     image_file="$4"
     work_dir="$DBSTCK_TMPDIR/$image_name"
     if [ -z "$image_file" ]
@@ -102,16 +116,26 @@ create_formatted_image()
     i=1
     for part_device in $(echo "$partition_devices")
     do
-        mp="$work_dir/part$i"
         wait_for_device $part_device
         if [ $i -eq $root_partition_num ]
         then
             # root partition
+            mp="$work_dir/rootfs"
             root_part_device=$part_device
-            lv_device=/dev/$lvm_vg/ROOT
-            setup_root_filesystem $part_device "$mp" $lvm_vg $lv_device
-            mounts_info="$lv_device $mp $mounts_info"
+            rootfs_label="$(get_rootfs_label $stick_os_id)"
+            if $(arch_use_lvm)
+            then
+                lvm_vg="$(get_vg_name $image_name $stick_os_id)"
+                lv_device=/dev/$lvm_vg/ROOT
+                setup_root_filesystem_on_lvm $part_device "$mp" \
+                                $lvm_vg $lv_device $rootfs_label
+                mounts_info="$lv_device $mp $mounts_info"
+            else
+                setup_root_filesystem $part_device "$mp" $rootfs_label
+                mounts_info="$part_device $mp $mounts_info"
+            fi
         else
+            mp="$work_dir/part$i"
             # other arch-specific partitions
             if arch_format_partition $i $part_device
             then
@@ -127,7 +151,7 @@ create_formatted_image()
 ${image_name}_file="$image_file"
 ${image_name}_device=$image_device
 ${image_name}_rootpart_device="$root_part_device"
-${image_name}_rootfs_mountpoint="$work_dir/part$root_partition_num"
+${image_name}_rootfs_mountpoint="$work_dir/rootfs"
 ${image_name}_mounts_info="$mounts_info"
 EOF
     )"
@@ -154,4 +178,16 @@ EOF
     done
     undo kpartx -a $image_device
     undo losetup $image_device "$image_file"
+}
+
+estimate_minimal_rootpart_size_kb()
+{
+    rootfs_mountpoint="$1"
+    data_size_kb=$(estimated_size_kb "$rootfs_mountpoint")
+    overheads=$EXT4_OVERHEAD_PERCENT
+    if $(arch_use_lvm)
+    then
+        overheads="$overheads $LVM_OVERHEAD_PERCENT"
+    fi
+    echo $(apply_overheads_percent $data_size_kb $overheads)
 }

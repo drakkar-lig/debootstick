@@ -2,6 +2,15 @@
 
 # Note: commented functions are optional.
 
+# system-type=installer option support requires:
+# 1- arch_use_lvm() to echo true
+# 2- arch_get_bootloader_install_command() to echo
+#    an appropriate command (e.g. grub-install)
+
+arch_use_lvm() {
+    echo false
+}
+
 # for details about the following functions
 # see 'steps' file
 

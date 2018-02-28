@@ -4,8 +4,6 @@
 VERSION='@VERSION@'     # updated at install time
 IMAGE_SIZE_MARGIN_KB=0  # fs size estimation is enough pessimistic
 MKSQUASHFS_OPTS="-b 1M -comp xz"
-FS_OVERHEAD_PERCENT=18
-LVM_OVERHEAD_PERCENT=4
 ONE_GIGABYTE_KB=$((1024*1024))
 MAX_WORK_IMAGE_OVERHEAD_KB=$ONE_GIGABYTE_KB
 DEBUG=0
@@ -142,12 +140,17 @@ probe_arch_optional_functions
 if $arch_get_bootloader_install_command_exists
 then
     bootloader_install_command=$(arch_get_bootloader_install_command)
-elif [ "$system_type" = "installer" ]
+fi
+
+if [ "$system_type" = "installer" ]
 then
-    # cannot use installer mode because arch does not specify
-    # a bootloader installation procedure.
-    echo "Sorry, this architecture does not support installer system type." >&2
-    exit 1
+    if [ -z "$bootloader_install_command" ] || ! $(arch_use_lvm)
+    then
+        # cannot use installer mode if arch does not use LVM or does not
+        # specify a bootloader installation procedure.
+        echo "Sorry, this architecture does not support installer system type." >&2
+        exit 1
+    fi
 fi
 
 # if we are here, command line is ok :)
@@ -171,9 +174,7 @@ then
 fi
 
 ORIG_TREE="$(cd "$chroot_in"; pwd)"
-STICK_OS_ID=$(uuidgen | tr -d '-')
-FINAL_LVM_VG="DBSTCK-$STICK_OS_ID"
-DRAFT_LVM_VG="DRAFT-$STICK_OS_ID"
+STICK_OS_ID=$(uuidgen | tr -d '-' | head -c 8)
 DBSTCK_TMPDIR=$(mktemp -du --tmpdir tmp.dbstck.XXXXX.d)
 final_image_path="$image_out"
 final_image_abspath="$(abspath "$image_out")"
@@ -215,7 +216,7 @@ echo -n "I: draft image - partitioning and formatting... "
 create_formatted_image \
         draft \
         $draft_stick_size_kb \
-        $DRAFT_LVM_VG
+        $STICK_OS_ID
 echo done
 
 # step: copy original tree to work image and modify it
@@ -243,7 +244,7 @@ with mount -o bind /etc/resolv.conf $PWD/etc/resolv.conf; do
     # let's start the customization
     chroot . ./chrooted-customization-draft.sh $CHROOTED_DEBUG    \
                 "$draft_device" "$root_password_request"        \
-                final_lvm_vg=$FINAL_LVM_VG   \
+                stick_os_id=$STICK_OS_ID   \
                 config_grub_on_serial_line=$config_grub_on_serial_line  \
                 kernel_package="\"$kernel_package\""    \
                 kernel_bootargs="\"$kernel_bootargs\"" \
@@ -264,9 +265,8 @@ fi
 # step: compute minimal size of final stick
 echo -n "I: final image - computing minimal image size... "
 cd $DBSTCK_TMPDIR
-data_size_kb=$(estimated_size_kb $draft_rootfs_mountpoint)
-final_rootpart_size_kb=$(apply_overheads_percent $data_size_kb \
-        $FS_OVERHEAD_PERCENT $LVM_OVERHEAD_PERCENT)
+final_rootpart_size_kb=$(estimate_minimal_rootpart_size_kb \
+                            $draft_rootfs_mountpoint)
 draft_rootpart_size_kb=$(device_size_kb $draft_rootpart_device)
 # since the draft and final images are formatted the
 # same way (only the size of the root partition differs),
@@ -288,7 +288,7 @@ echo -n "I: final image - partitioning and formatting... "
 create_formatted_image \
         final \
         $final_stick_size_kb \
-        ${FINAL_LVM_VG} \
+        ${STICK_OS_ID} \
         $final_image_abspath
 echo done
 echo -n "I: final image - copying content from draft image... "
@@ -298,7 +298,8 @@ release_image draft     # not needed anymore
 
 # add the dbstck.conf file
 cat > $final_rootfs_mountpoint/dbstck.conf << EOF
-LVM_VG=$FINAL_LVM_VG
+STICK_OS_ID=$STICK_OS_ID
+USE_LVM=$(arch_use_lvm)
 SYSTEM_TYPE=$system_type
 ASK_ROOT_PASSWORD_ON_FIRST_BOOT=$root_password_on_first_boot
 BOOTLOADER_INSTALL=$bootloader_install_command
