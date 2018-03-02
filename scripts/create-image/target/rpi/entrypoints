@@ -1,0 +1,60 @@
+# vim: filetype=sh
+
+# for details about the following functions
+# see 'steps' file
+
+target_use_lvm() {
+    echo false
+}
+
+target_preliminary_steps() {
+    echo "I: Some operations will require CPU EMULATION - Please be patient!"
+}
+
+target_final_customization_steps() {
+    final_customization_steps
+}
+
+# for details about the following functions
+# see 'formatting' file
+
+target_partition_image() {
+    partition_image $@
+}
+
+target_format_partition() {
+    format_partition $@
+}
+
+# for details about the following functions
+# see 'packages' file
+
+target_kernel_default_package() {
+    kernel_default_package
+}
+
+target_custom_packages() {
+    custom_packages
+}
+
+# for details about the following functions
+# see 'rootfs' file
+
+target_prepare_rootfs() {
+    prepare_rootfs $@
+}
+
+target_cleanup_rootfs() {
+    cleanup_rootfs $@
+}
+
+# for details about the following functions
+# see 'bootloader' file
+
+target_configure_bootloader() {
+    configure_bootloader
+}
+
+target_install_bootloader() {
+    install_bootloader
+}

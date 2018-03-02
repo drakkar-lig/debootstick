@@ -1,0 +1,37 @@
+# vim: filetype=sh
+
+BOOT_PARTITION_SIZE_MB=50
+
+# we will have 2 partitions:
+# 1- /boot (fat)
+# 2- / (managed by debootstick core)
+
+# partitioning and formatting
+# ---------------------------
+
+partition_image()
+{
+    device=$1
+    sfdisk $device >/dev/null << EOF
+label: dos
+
+size=${BOOT_PARTITION_SIZE_MB}MiB,type=c
+type=83
+EOF
+}
+
+format_partition()
+{
+    partnum=$1
+    partdevice=$2
+
+    if [ $partnum -eq 1 ]
+    then
+        # format the 1st partition
+        quiet mkfs.vfat -n DBSTCK_BOOT $partdevice
+        return 0
+    else
+        # partition 2 is the root fs => managed by debootstick core
+        return 1
+    fi
+}

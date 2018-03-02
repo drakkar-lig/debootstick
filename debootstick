@@ -222,11 +222,11 @@ cd $draft_rootfs_mountpoint
 cp -a $ORIG_TREE/* .
 echo done
 
-# 2nd level of checks of input file hierarchy
-check_fs_hierarchy "$PWD" 2 || exit 1
-
 # execute target-specific preparation steps, if any
 optional_target_prepare_rootfs draft outside
+
+# 2nd level of checks of input file hierarchy
+check_fs_hierarchy "$PWD" 2 || exit 1
 
 mkdir -p opt/debootstick
 cp -a $DBSTCK_DIR/scripts/live opt/debootstick/live
@@ -245,13 +245,12 @@ with mount -o bind /etc/resolv.conf $PWD/etc/resolv.conf; do
                 config_hostname="\"$config_hostname\""
 done
 rm ./chrooted-customization-draft.sh
-cd ..
-
-# step: finalyse filesystem setup
-finalize_fs $draft_rootfs_mountpoint
 
 # execute target-specific cleanup steps, if any
 optional_target_cleanup_rootfs draft outside
+
+# step: finalyse filesystem setup
+finalize_fs $draft_rootfs_mountpoint
 
 # step: compute minimal size of final stick
 echo -n "I: final image - computing minimal image size... "

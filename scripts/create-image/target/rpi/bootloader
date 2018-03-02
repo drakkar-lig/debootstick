@@ -1,0 +1,36 @@
+# vim: filetype=sh
+
+# bootloader management
+# ---------------------
+
+# configure the bootloader appropriately, given the variable $kernel_bootargs
+# and any other target-specific requirements.
+
+configure_bootloader()
+{
+    # get existing conf if any
+    if [ -f /boot/cmdline.txt ]
+    then
+        kernel_cmdline=$(cat /boot/cmdline.txt)
+    fi
+
+    # our minimal options
+    default_settings="root=/dev/mmcblk0p2 rootfstype=ext4 rootwait"
+
+    # the user may add a bootarg by specifying a modifier "<bootarg>" or "+<bootarg>"
+    # and delete a bootarg by specifying a modifier "-<bootarg>"
+
+    kernel_cmdline="$(update_kernel_cmdline "$kernel_cmdline" \
+                        $default_settings $kernel_bootargs)"
+
+    echo $kernel_cmdline > /boot/cmdline.txt
+}
+
+# install the bootloader on $loop_device
+
+install_bootloader()
+{
+    # nothing to do here, package raspberrypi-bootloader should have installed the
+    # appropriate files in /boot.
+    :   # colon is no-op in shell
+}

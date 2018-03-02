@@ -1,0 +1,40 @@
+# vim: filetype=sh
+
+ARM_BINFMT_DEF=/proc/sys/fs/binfmt_misc/qemu-arm
+ERR_CPU_EMULATION="E: Cannot continue because host OS does not provide ARM cpu emulation."
+
+prepare_rootfs_for_emulation()
+{
+    if [ ! -f $ARM_BINFMT_DEF ]
+    then
+        echo "$ERR_CPU_EMULATION" >&2
+        return 1
+    fi
+    set -- $(cat $ARM_BINFMT_DEF | grep interpreter)
+    interpreter_path="$2"
+    if [ ! -f "./$interpreter_path" ]
+    then
+        # emulator binary is missing in target
+        # verify we have it on the host
+        if [ ! -f "$interpreter_path" ]
+        then
+            echo "$ERR_CPU_EMULATION" >&2
+            return 1
+        fi
+
+        # ok, copy the one from the host
+        cp "$interpreter_path" "./$interpreter_path"
+
+        # keep track of this
+        echo "$interpreter_path" > .emulation.added
+    fi
+}
+
+cleanup_rootfs_for_emulation()
+{
+    if [ -f .emulation.added ]
+    then
+        rm "./$(cat .emulation.added)"
+        rm .emulation.added
+    fi
+}
