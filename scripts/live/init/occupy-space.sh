@@ -10,25 +10,24 @@ then
     LVM_VG=$(get_vg_name $STICK_OS_ID)
     rootfs_device="/dev/$LVM_VG/ROOT"
     device=$(get_booted_device_from_vg $LVM_VG)
-    rootfs_partnum=$(get_pv_part_num $device)
 else
     rootfs_device=$(findmnt -no SOURCE /)
     device=$(part_to_disk $rootfs_device)
-    rootfs_partnum=$(get_part_num $rootfs_device)
 fi
-rootfs_partition="$device$rootfs_partnum"
 
 echo "** Extending disk space..."
 
 {
     echo MSG resizing partition...
-    sgdisk -e -d $rootfs_partnum -n $rootfs_partnum:0:0 \
-                -t $rootfs_partnum:8e00 ${device}
-    partx -u ${device}  # notify the kernel
+    expand_last_partition ${device}
+
     if $USE_LVM
     then
+        pv_partnum=$(get_pv_part_num $device)
+        pv_partition="$(get_part_device $device $pv_partnum)"
+
         echo MSG resizing lvm physical volume...
-        pvresize $rootfs_partition
+        pvresize $pv_partition
 
         if $(vg_has_free_space $LVM_VG)
         then

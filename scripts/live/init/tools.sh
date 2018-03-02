@@ -46,10 +46,32 @@ show_progress_bar()
     printf "$progress_bar %d%%\r" $((achieved*100/total))
 }
 
+disk_partitions()
+{
+    lsblk -lno NAME,TYPE | grep -w disk | while read disk_name type
+    do
+        disk="/dev/$disk_name"
+        lsblk -lno NAME,TYPE $disk | grep -w part | while read part_name type
+        do
+            part="/dev/$part_name"
+            echo $disk $part
+        done
+    done
+}
+
 # find device currently being booted
 part_to_disk()
 {
-    echo $1 | sed -e "s/.$//"
+    set -- $(disk_partitions | grep -w "$1")
+    echo $1
+}
+
+get_part_device()
+{
+    disk=$1
+    part_num=$2
+    set -- $(disk_partitions | grep -w "$disk" | grep "$part_num$")
+    echo $2
 }
 
 get_part_num()
@@ -72,6 +94,32 @@ vg_has_free_space()
     else
         echo false
     fi
+}
+
+# This function works good for both GPT and DOS partition tables, and also
+# with older OS versions (nowadays sfdisk can handle both types, but it
+# was not the case with ubuntu trusty yet).
+expand_last_partition()
+{
+    disk="$1"
+    part_table_type=$(partx -v $disk | grep -o '\(dos\)\|\(gpt\)')
+    eval $(partx -o NR,START,TYPE -P $disk | tail -n 1)
+    # we delete, then re-create the partition with same information
+    # except the last sector for which we validate the default value.
+    case "$part_table_type" in
+        "dos")
+            sfdisk --no-reread $disk >/dev/null 2>&1 << EOF || true
+$(sfdisk -d $disk | head -n -$((5-$NR)))
+ $NR : start=$START, size=, Id=$TYPE
+EOF
+            ;;
+        "gpt")
+            sgdisk -e -d $NR -n $NR:$START:0 \
+                -t $NR:$TYPE ${disk}
+            ;;
+    esac
+    partx -u ${disk}  # notify the kernel
+
 }
 
 # partx does not report the type the same way on all systems

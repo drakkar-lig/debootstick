@@ -87,18 +87,22 @@ echo "** Going on."
     echo MSG copy partitions that are not LVM PVs...
     for n in $(get_part_nums_not_pv $ORIGIN)
     do
-        dd_min_verbose if=${ORIGIN}$n of=${TARGET}$n bs=10M
+        part_origin=$(get_part_device ${ORIGIN} $n)
+        part_target=$(get_part_device ${TARGET} $n)
+        dd_min_verbose if=$part_origin of=$part_target bs=10M
     done
 
     echo MSG moving the lvm volume content on ${TARGET}...
-    yes | pvcreate -ff ${TARGET}$pv_part_num
-    vgextend $LVM_VG ${TARGET}$pv_part_num
-    pvchange -x n ${ORIGIN}$pv_part_num
-    pvmove -i 1 ${ORIGIN}$pv_part_num | while read pv action percent
+    part_origin=$(get_part_device ${ORIGIN} $pv_part_num)
+    part_target=$(get_part_device ${TARGET} $pv_part_num)
+    yes | pvcreate -ff $part_target
+    vgextend $LVM_VG $part_target
+    pvchange -x n $part_origin
+    pvmove -i 1 $part_origin | while read pv action percent
     do
         echo REFRESHING_MSG "$percent"
     done
-    vgreduce $LVM_VG ${ORIGIN}$pv_part_num
+    vgreduce $LVM_VG $part_origin
     echo REFRESHING_DONE
 
     echo MSG filling the space available...
@@ -109,7 +113,7 @@ echo "** Going on."
     $BOOTLOADER_INSTALL ${TARGET}
 
     echo MSG making sure ${ORIGIN} is not used anymore...
-    pvremove ${ORIGIN}$pv_part_num
+    pvremove $part_origin
     sync; sync
     partx -d ${ORIGIN}
 
