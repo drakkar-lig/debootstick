@@ -3,34 +3,51 @@
 # kernel command line customization
 # ---------------------------------
 
-add_bootarg()
+# The behavior of the following function is better
+# understood with the following example:
+#
+# $ to_bootarglist quiet rootdelay=3 -quiet rootdelay=2 +break=init
+# + quiet
+# + rootdelay 3
+# - quiet
+# + rootdelay 2
+# + break init
+# $
+
+to_bootarglist()
 {
-    cmdline="$cmdline $1"
+    echo $@ | tr ' ' '\n' | tr '=' ' ' | \
+        sed -e 's/^\([^+-]\)/+\1/g' | sed -e 's/^\(.\)/\1 /g'
 }
 
-del_bootarg()
-{
-    cmdline="$(echo "$cmdline" | sed -e "s/\b$1\b//g")"
-}
+# The following function allows to generate an appropriate kernel cmdline
+# given a set of bootarg definitions.
+# For a given bootarg name, last definition provided takes precedence.
+# Example:
+#
+# $ aggregate_kernel_cmdline quiet rootdelay=3 -quiet rootdelay=2 +break=init
+# break=init rootdelay=2
+# $
 
-update_kernel_cmdline()
+aggregate_kernel_cmdline()
 {
-    cmdline="$1"
-    shift
-    for bootarg in "$@"
+    bootarglist="$(to_bootarglist $@)"
+    bootargnames="$(echo "$bootarglist" | awk '{print $2}' | sort -u)"
+    cmdline=""
+    for bootarg in $bootargnames
     do
-        bootargmod="$(echo "$bootarg" | cut -c2-)"
-        case "$bootarg" in
-            +*)
-                add_bootarg "$bootargmod"
-                ;;
-            -*)
-                del_bootarg "$bootargmod"
-                ;;
-            *)
-                add_bootarg "$bootarg"
-                ;;
-        esac
+        # last definition of given bootarg takes precedence
+        set -- $(echo "$bootarglist" | grep -w "$bootarg" | tail -n 1)
+        if [ "$1" = "+" ]   # otherwise ignore this bootarg
+        then
+            # ok register this bootarg
+            if [ -z "$3" ]
+            then
+                cmdline="$cmdline $bootarg"     # bootarg with no value
+            else
+                cmdline="$cmdline $bootarg=$3"  # bootarg with value
+            fi
+        fi
     done
-    echo "$cmdline"
+    echo $cmdline
 }

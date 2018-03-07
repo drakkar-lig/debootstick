@@ -8,22 +8,25 @@
 
 configure_bootloader()
 {
-    # get existing conf if any
+    # get existing conf in chroot environment if any
     if [ -f /boot/cmdline.txt ]
     then
-        kernel_cmdline=$(cat /boot/cmdline.txt)
+        existing_bootargs=$(cat /boot/cmdline.txt)
     fi
 
-    # our minimal options
-    default_settings="root=/dev/mmcblk0p2 rootfstype=ext4 rootwait"
+    # our mandatory options
+    mandatory_bootargs="root=/dev/mmcblk0p2 rootfstype=ext4 rootwait"
 
-    # the user may add a bootarg by specifying a modifier "<bootarg>" or "+<bootarg>"
-    # and delete a bootarg by specifying a modifier "-<bootarg>"
+    # and the user may specify more bootarg customization by giving
+    # them on the command line
+    explicit_bootargs=$kernel_bootargs
 
-    kernel_cmdline="$(update_kernel_cmdline "$kernel_cmdline" \
-                        $default_settings $kernel_bootargs)"
+    # order of precedence is:
+    # explicit_bootargs > mandatory_bootargs > existing_bootargs
+    applied_kernel_cmdline="$(aggregate_kernel_cmdline $existing_bootargs \
+                        $mandatory_bootargs $explicit_bootargs)"
 
-    echo $kernel_cmdline > /boot/cmdline.txt
+    echo $applied_kernel_cmdline > /boot/cmdline.txt
 }
 
 # install the bootloader on $loop_device

@@ -34,22 +34,28 @@ END_MAP
 update_grub_conf()
 {
     . /etc/default/grub
-    GRUB_CMDLINE_LINUX="$GRUB_CMDLINE_LINUX rootdelay=3"
+    existing_bootargs="$GRUB_CMDLINE_LINUX"
+    recommended_bootargs="rootdelay=3"
+    user_bootargs="$@"
 
-    # the user may add a bootarg by specifying a modifier "<bootarg>" or "+<bootarg>"
-    # and delete a bootarg by specifying a modifier "-<bootarg>"
+    # order of precedence is:
+    # user_bootargs > recommended_bootargs > existing_bootargs
+
     # In the case of grub, we add bootargs to grub's GRUB_CMDLINE_LINUX variable.
     # However, when deleting a bootarg, it may actually be in GRUB_CMDLINE_LINUX_DEFAULT too.
 
-    GRUB_CMDLINE_LINUX="$(update_kernel_cmdline "$GRUB_CMDLINE_LINUX" "$@")"
+    GRUB_CMDLINE_LINUX="$(aggregate_kernel_cmdline $existing_bootargs $recommended_bootargs $user_bootargs)"
 
-    only_minus_modifiers="$(echo "$@" | tr ' ' '\n' | happy_grep '^-')"
-    GRUB_CMDLINE_LINUX_DEFAULT="$(update_kernel_cmdline "$GRUB_CMDLINE_LINUX_DEFAULT" $only_minus_modifiers)"
+    only_minus_modifiers="$(echo "$user_bootargs" | tr ' ' '\n' | happy_grep '^-')"
+    GRUB_CMDLINE_LINUX_DEFAULT="$(aggregate_kernel_cmdline $GRUB_CMDLINE_LINUX_DEFAULT $only_minus_modifiers)"
 
     sed -i -e "s/GRUB_CMDLINE_LINUX=.*/GRUB_CMDLINE_LINUX=\"$GRUB_CMDLINE_LINUX\"/" \
            -e "s/GRUB_CMDLINE_LINUX_DEFAULT=.*/GRUB_CMDLINE_LINUX_DEFAULT=\"$GRUB_CMDLINE_LINUX_DEFAULT\"/" \
            -e "s/^GRUB_HIDDEN/#GRUB_HIDDEN/g" \
             /etc/default/grub
+
+    # let the user know which bootargs where finally selected
+    applied_kernel_cmdline=$(aggregate_kernel_cmdline $GRUB_CMDLINE_LINUX $GRUB_CMDLINE_LINUX_DEFAULT)
 }
 
 # display the grub interface on serial line

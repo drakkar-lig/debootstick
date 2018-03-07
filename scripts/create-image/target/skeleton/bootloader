@@ -8,16 +8,30 @@
 
 configure_bootloader()
 {
-    kernel_cmdline="<default kernel bootargs ...>"
+    # get existing conf in chroot environment if any...
+    # sample code:
+    # if [ -f /boot/cmdline.txt ]
+    # then
+    #    existing_bootargs=$(cat /boot/cmdline.txt)
+    # fi
 
-    # the user may add a bootarg by specifying a modifier "<bootarg>" or "+<bootarg>"
-    # and delete a bootarg by specifying a modifier "-<bootarg>"
-    # In the case of grub, we add bootargs to grub's GRUB_CMDLINE_LINUX variable.
-    # However, when deleting a bootarg, it may actually be in GRUB_CMDLINE_LINUX_DEFAULT too.
+    # our mandatory options
+    mandatory_bootargs="root=<some-device> rootfstype=ext4 rootwait"
 
-    kernel_cmdline="$(update_kernel_cmdline "$kernel_cmdline" $kernel_bootargs)"
+    # The user may specify more bootarg customization by giving
+    # them on the command line (option --config-kernel-bootargs).
+    # Specifying "<bootarg>[=<value>]" or "+<bootarg>[=<value>]"
+    # allows to add or overwrite any previous definition of <bootarg>.
+    # Specifying "-<bootarg>" allows to remove any definition of
+    # <bootarg> from the kernel cmdline.
+    explicit_bootargs=$kernel_bootargs
 
-    # write $kernel_cmdline in appropriate configuration file...
+    # order of precedence is:
+    # explicit_bootargs > mandatory_bootargs > existing_bootargs
+    applied_kernel_cmdline="$(aggregate_kernel_cmdline $existing_bootargs \
+                        $mandatory_bootargs $explicit_bootargs)"
+
+    # write computed $applied_kernel_cmdline in appropriate configuration file...
 }
 
 # install the bootloader on $loop_device

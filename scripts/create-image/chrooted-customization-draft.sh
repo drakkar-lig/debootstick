@@ -128,6 +128,18 @@ target_install_bootloader
 
 echo done
 
+# check if target-specific code specified
+# 'applied_kernel_cmdline' variable
+if [ ! -z ${applied_kernel_cmdline+x} ]
+then
+    bootargs="$applied_kernel_cmdline"
+    if [ -z "$bootargs" ]
+    then
+        bootargs="<none>"
+    fi
+    echo "I: draft image - kernel bootargs: $bootargs"
+fi
+
 echo -n "I: draft image - updating fstab... "
 update_fstab $stick_os_id
 echo done
