@@ -47,12 +47,27 @@ update_apt_conf()
     # ensure apt has the pubkey for archive.raspberrypi.org repo
     echo "$RPI_REPO_PUBKEY" | apt-key --keyring etc/apt/trusted.gpg add - >/dev/null 2>&1
 
+    # analyse sources.list
+    set -- $(cat etc/apt/sources.list | grep -v "^#" | grep -w main | head -n 1)
+    version_name=$3
+    mirror=$2
+    shift 3
+    components=$*
+
+    mirror_host=$(echo "$mirror" | tr "/" " " | awk '{print $2}')
+    if [ "$mirror_host" = "httpredir.debian.org" ]
+    then
+        # see https://bugs.launchpad.net/ubuntu/+source/qemu/+bug/1670905
+        cat > etc/apt/sources.list << EOF
+deb http://mirrordirector.raspbian.org/raspbian $version_name $components
+EOF
+        echo "I: draft image - fixed wrong sources.list (bogus debootstrap foreign chroot)."
+    fi
+
     # check that we have the conf for archive.raspberrypi.org repo
     if [ ! -f "etc/apt/sources.list.d/raspi.list" ]
     then
         # no. let's create it.
-        version_name=$(cat etc/apt/sources.list | grep -v "^#" | \
-                              grep raspbian | head -n 1 | awk '{print $3}')
         cat > etc/apt/sources.list.d/raspi.list << EOF
 deb http://archive.raspberrypi.org/debian/ $version_name main ui
 # Uncomment line below then 'apt-get update' to enable 'apt-get source'
