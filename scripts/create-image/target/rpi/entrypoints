@@ -1,5 +1,9 @@
 # vim: filetype=sh
 
+target_get_name() {
+    echo "Raspberry Pi board"
+}
+
 # for details about the following functions
 # see 'steps' file
 

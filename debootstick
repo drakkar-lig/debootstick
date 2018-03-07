@@ -192,6 +192,8 @@ final_cleanup()
     fi
 }
 
+echo "I: detected target system: $(target_get_name)"
+
 start_failsafe_mode --toplevel final_cleanup
 
 failsafe mkdir -p $DBSTCK_TMPDIR

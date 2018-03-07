@@ -2,6 +2,10 @@
 
 # Note: commented functions are optional.
 
+target_get_name() {
+    echo "Skeleton target!"
+}
+
 # system-type=installer option support requires:
 # 1- target_use_lvm() to echo true
 # 2- target_get_bootloader_install_command() to echo

@@ -1,5 +1,9 @@
 # vim: filetype=sh
 
+target_get_name() {
+    echo "$(get_target_cpu "$ORIG_TREE") PC"
+}
+
 target_use_lvm() {
     echo true
 }
