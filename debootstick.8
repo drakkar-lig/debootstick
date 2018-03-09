@@ -1,6 +1,6 @@
 .\" (C) Copyright 2015 Etienne Dublé <etienne.duble@imag.fr>,
 .\"
-.TH DEBOOTSTICK 8 "August 24, 2015"
+.TH DEBOOTSTICK 8 "March 8, 2018"
 .\" Please adjust this date whenever revising the manpage.
 
 .SH NAME
@@ -15,13 +15,27 @@ debootstick \- Generate a bootable image from a Debian-based chroot environment
 
 .B debootstick
 generates a bootable image (at \fIDEST\fP) from a Debian-based chroot environment (at \fISOURCE\fP).
+.br
+The output image generated at \fIDEST\fP should then be copied
+to a USB stick, disk or SD card.
 
 .PP
-\fISOURCE\fP must be a directory
-containing a standard Debian-based chroot environment (such as one generated with
-\fBdebootstrap\fP(8)).
-The output image generated at \fIDEST\fP should then be copied
-to a USB stick or disk.
+\fBdebootstick\fP can currently generate bootable images for:
+.br
+- Standard PC systems (32 or 64bits)
+.br
+- Raspberry Pi boards
+.br
+This target system is automatically selected given the \fISOURCE\fP chroot environment
+(Debian/Ubuntu or Raspbian-based).
+.PP
+Most popular options for generating the \fISOURCE\fP directory are:
+.br
+- exporting the content of a \fBdocker\fP container
+.br
+- using dedicated tools such as \fBdebootstrap\fP(8) or \fBqemu-debootstrap\fP(1)
+.br
+See section \fBCHROOT ENVIRONMENTS\fP below.
 
 .PP
 The embedded system is:
@@ -30,10 +44,10 @@ The embedded system is:
 .br
 - viable in the long-term, fully upgradable (kernel, bootloader included)
 .br
-- compatible with BIOS and UEFI systems
+- compatible with BIOS and UEFI systems (PC), or Raspberry Pi Boards.
 
 .B debootstick
-can also generate installer media. See option \fB\-\-system\-type\fP below.
+can also generate installer media (for PCs). See option \fB\-\-system\-type\fP below.
 
 .SH OPTIONS
 .B debootstick
@@ -60,7 +74,7 @@ See section \fBINSTALLER MEDIA\fP below.
 .TP
 .B \-\-kernel\-package PACKAGE_NAME
 Specify the kernel that should be installed. Without this option, \fBdebootstick\fP
-will install a common one (depending on the embedded distribution).
+will install a default one (depending on the embedded distribution).
 .TP
 .B \-\-config\-hostname HOSTNAME
 Specify the hostname the embedded system will have.
@@ -86,7 +100,7 @@ Remove the root password of the embedded system (root login will not prompt any 
 Ask for the root password when the system will be booted for the first time.
 .TP
 .B \-\-config\-grub\-on\-serial\-line
-Update grub configuration to show boot menu on serial line.
+Update grub configuration to show boot menu on serial line. (This is obviously PC-specific.)
 
 .SH EXAMPLES
 
@@ -127,7 +141,7 @@ Test it with kvm.
 .br
 \fBtruncate\fP \-s 2G /tmp/img.dd\-test    # simulate a copy on a 2G-large USB stick
 .br
-\fBkvm\fP \-hda /tmp/img.dd\-test          # the test itself (BIOS mode)
+\fBkvm\fP \-m 2048 \-hda /tmp/img.dd\-test  # the test itself (BIOS mode)
 
 .PP
 .B 5-
@@ -138,16 +152,29 @@ Copy the boot image to a USB stick or disk.
 .PP
 The USB device may now be booted on any BIOS or UEFI system.
 
-.SH CPU ARCHITECTURES
-\fBdebootstick\fP expects a chroot environment built for amd64 or i386 systems.
+.SH CHROOT ENVIRONMENTS
+
+An example of chroot environment generation for a PC system is given in the
+previous section.
+
+.PP
+In order to generate a chroot environment for a Raspberry Pi, you can use
+\fBqemu-debootstrap\fP(1):
+.br
+\fBqemu\-debootstrap\fP \-\-no\-check\-gpg \-\-arch=armhf \-\-variant=minbase
+jessie rpi\-fs http://mirrordirector.raspbian.org/raspbian
+
+.PP
+Exporting the OS files from a virtual machine or a docker container is another option
+to generate a chroot environment.
+The added benefit of this approach is that a virtualized environment is
+very convenient for the OS customization phase, before calling \fBdebootstick\fP.
+
+.SH TARGET SYSTEM ARCHITECTURES
+\fBdebootstick\fP expects a chroot environment built for amd64 or i386 systems,
+or for Raspberry Pi boards.
 Of course, the resulting image will reflect this initial architecture, and thus
 it should be booted on a compatible system.
-.br
-\fBdebootstick\fP also needs that the host system is able to execute binaries
-in the chroot environment. For example, trying to run it with an
-amd64 chroot environment on an i386 host will fail.
-.br
-\fBdebootstick\fP will check this kind of things on startup.
 
 .SH INSTALLER MEDIA
 
@@ -155,18 +182,26 @@ When first booting a system built with the \fB\-\-system\-type installer\fP
 option, it will look for a larger disk and move to that disk.
 This operation does not require a reboot. Once done, the system will just continue its
 bootup procedure (and the initial device can be removed).
+.PP
+Notes:
 .br
-\fBCAUTION:\fP Any data on the target disk will be lost.
+- \fBCAUTION:\fP Any data on the target disk will be lost!
 .br
-Also note that the system is moved, not copied. Thus the initial device cannot be used
-anymore after the migration, unless you copy an image again, of course.
+- The system is \fBmoved\fP, not copied. Thus the initial device cannot be used
+anymore after the migration, unless you copy an image on it again, of course.
+.br
+- This option is \fBnot\fP available for Raspberry Pi boards.
+It would make little sense anyway, since the SD card is usually the only
+bootable media available on this kind of board. 
 
-.SH NOTES
+.SH UEFI BOOTING
+
 It is also possible to test the UEFI boot with \fBkvm\fP, if you have the
 \fBovmf\fP package installed, by adding \fB\-bios /path/to/OVMF.fd\fP to
 the \fBkvm\fP command line.
 
-.PP
+.SH DESIGN NOTES
+
 Many Live distributions propose a highly compressed system based on a squashfs image.
 They handle writes using an overlay based on a filesystem union.
 While this allows the system to remain compact in the first times, this also has
@@ -182,9 +217,10 @@ the original versions in the squashfs image is counter-productive in the long te
 One of the objectives behind \fBdebootstick\fP was to provide a viable long-term
 live system, therefore this kind of setup has been discarded.
 
-.SH AUTHOR
-Etienne Duble (etienne.duble@imag.fr)
+.SH AUTHORS
+Etienne Duble (etienne.duble@imag.fr) and contributors.
 
 .SH SEE ALSO
 .BR debootstrap (8),
+.BR qemu-debootstrap (1),
 .BR kvm (1).
