@@ -1,3 +1,17 @@
+debootstick (2.0) unstable; urgency=medium
+
+  * Raspberry Pi SD card generation support (with a raspbian chroot).
+  * Enhanced kernel bootargs management (wrt. <name>=<value> format).
+    (Thanks to ThibsG for reporting the related issue.)
+  * Refactor to separate target-specific (RPi or PC) and common code.
+  * Also added 'skeleton' target for reference.
+  * Support both GPT and DOS partitioning.
+  * Allow a given target not to use LVM (i.e. have rootfs on partition).
+  * More robust lvm devices removal while building image.
+  * Improve code robustness.
+
+ -- Etienne Dublé <etienne.duble@gmail.com>  Fri, 9 Mar 2018 17:59:13 +0000
+
 debootstick (1.3) unstable; urgency=medium
 
   * Support Debian Buster (as of january 31, 2018) chroot environments.
