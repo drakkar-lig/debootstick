@@ -11,12 +11,14 @@ describe_os_support()
     cat << EOF
 This version of debootstick was tested successfully with the following kinds of
 chroot-environments:
-- Debian 10 (buster) as of january 31, 2018
-- Debian 9 (stretch)
-- Debian 8 (jessie)
-- Debian 7 (wheezy)
-- Ubuntu 16.04 LTS (xenial)
-- Ubuntu 14.04 LTS (trusty)
-Their binary architecture must be either i386 or amd64.
+* OS for Raspberry Pi:
+    - Raspbian stretch
+    - Raspbian jessie
+* OS for 32 or 64 bit PCs:
+    - Debian 10 (buster) as of march 9, 2018
+    - Debian 9 (stretch)
+    - Debian 8 (jessie)
+    - Ubuntu 16.04 LTS (xenial)
+    - Ubuntu 14.04 LTS (trusty)
 EOF
 }
