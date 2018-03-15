@@ -8,6 +8,7 @@ debootstick (2.0) unstable; urgency=medium
   * Support both GPT and DOS partitioning.
   * Allow a given target not to use LVM (i.e. have rootfs on partition).
   * More robust lvm devices removal while building image.
+  * Fix issue when extending filesystem over a large disk (with Jessie).
   * Improve code robustness.
 
  -- Etienne Dublé <etienne.duble@gmail.com>  Fri, 9 Mar 2018 17:59:13 +0000

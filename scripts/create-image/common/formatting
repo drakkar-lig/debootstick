@@ -9,16 +9,16 @@
 # creating a sample filesystem on such a system:
 
 # $ cd /tmp
-# $ dd of=test.ext4 bs=1G count=0 seek=50
-# $ mkfs.ext4 -F -q -L ROOT -T default -m 2 test.ext4
+# $ dd of=test.ext4 bs=1G count=0 seek=100
+# $ mkfs.ext4 -F -q -L ROOT -T big -m 2 test.ext4
 # $ dumpe2fs test.ext4 | grep features
 
-# Note about the '-T default' option:
+# Note about the '-T big' option:
 # We try to create a USB stick as small as possible.
 # However, the embedded system may later by copied on a
 # potentially large disk.
-# Therefore, we specify the option '-T default' to mkfs.ext4.
-# This allows to select 'default' ext4 features even if the
+# Therefore, we specify the option '-T big' to mkfs.ext4.
+# This allows to select appropriate ext4 features even if the
 # filesystem might be considered 'small' at first.
 # This may seem cosmetic but it's not: if initialized with
 # '-T small' (or with no -T option and run on a small disk),
@@ -42,7 +42,7 @@ make_root_fs()
     rootfs_device=$1
     rootfs_label=$2
     features="$(echo $EXT4_FEATURES | tr ' ' ',')"
-    mkfs.ext4 -F -q -L $rootfs_label -O "none,$features" -m 2 $rootfs_device
+    mkfs.ext4 -F -q -L $rootfs_label -T big -O "none,$features" -m 2 $rootfs_device
 }
 
 setup_root_filesystem()
