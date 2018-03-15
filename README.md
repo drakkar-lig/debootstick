@@ -11,19 +11,33 @@ $ dd if=img.dd of=/dev/<your_device> bs=10M
 Your USB device now embeds a live Ubuntu system and can be booted
 on any UEFI or BIOS computer.
 
+A shinier example:
+```
+$ docker run -it --name mycontainer --entrypoint /bin/bash eduble/rpi-stretch-mini
+> [... customize ...]
+> exit
+$ mkdir mycontainer_fs; cd mycontainer_fs
+$ docker export mycontainer | tar xf - ; docker rm mycontainer
+$ cd ..
+$ debootstick --config-root-password-none mycontainer_fs rpi.dd
+$ dd if=rpi.dd of=/dev/mmcblk0 bs=10M
+```
+Your Raspberry Pi now boots your customized OS!
+
 Embedded OS features
 --------------------
 The embedded system is:
 
 - ready to be used (no installation step)
 - viable in the long-term, fully upgradable (including the kernel and the bootloader)
-- compatible with BIOS and UEFI systems
+- compatible with BIOS and UEFI systems (PC) or Raspberry Pi boards
 
 More information on the wiki
 ----------------------------
-On the wiki at https://github.com/drakkar-lig/debootstick/wiki, you will find: 
+On the wiki at https://github.com/drakkar-lig/debootstick/wiki, you will find:
 * A more complete workflow for designing and testing an image
 * How to install __debootstick__
 * How to combine __debootstrap__ or __docker__ with __debootstick__
 * How to test images with __kvm__
 * Design notes, FAQ
+
