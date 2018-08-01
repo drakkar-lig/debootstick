@@ -20,6 +20,8 @@ Description: Turn a chroot environment into a bootable image
  debootstrap, docker export, etc.).
  This image should then be copied to a USB stick or disk and
  used to boot any amd64 machine (BIOS- or UEFI-based).
+ debootstick can also generate an SD card image for a
+ raspberry pi board.
  The embedded system is ready to be started live (no
  installation procedure needed), and is fully upgradeable
  (kernel and bootloader included).
