@@ -3,7 +3,7 @@
 preliminary_steps()
 {
     echo -n "I: generating a UEFI bootloader binary... "
-    build_uefi_binary_image
+    build_uefi_binary_image $@
     echo done
 }
 

@@ -12,11 +12,11 @@ target_use_lvm() {
 # see 'steps' file
 
 target_preliminary_steps() {
-    preliminary_steps
+    preliminary_steps $@
 }
 
 target_final_customization_steps() {
-    final_customization_steps
+    final_customization_steps $@
 }
 
 # for details about the following functions

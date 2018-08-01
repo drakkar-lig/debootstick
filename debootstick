@@ -200,7 +200,7 @@ failsafe mkdir -p $DBSTCK_TMPDIR
 cd $DBSTCK_TMPDIR
 
 # execute target-specific preliminary steps, if any
-optional_target_preliminary_steps
+optional_target_preliminary_steps ${STICK_OS_ID}
 
 # step: compute a stick size large enough for our work
 # (i.e. not for the final minimized version)
@@ -317,7 +317,7 @@ optional_target_cleanup_rootfs final outside
 cd ..
 
 # execute target-specific final steps, if any
-optional_target_final_customization_steps
+optional_target_final_customization_steps ${STICK_OS_ID}
 
 # step: clean up
 echo -n "I: cleaning up... "

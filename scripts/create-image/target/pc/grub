@@ -151,6 +151,8 @@ uefi_binary_image_info() {
 
 build_uefi_binary_image()
 {
+    stick_os_id="$1"
+    rootfs_label="$(get_rootfs_label $stick_os_id)"
     set -- $(uefi_binary_image_info)
     grub_arch="$1"
     img_name="$2"
@@ -162,7 +164,7 @@ insmod part_gpt
 insmod lvm
 insmod efi_gop
 insmod efi_uga
-search --set rootfs --label ROOT
+search --set rootfs --label $rootfs_label
 configfile (\$rootfs)/boot/grub/grub.cfg
 EOF
     grub-mkstandalone \
