@@ -105,12 +105,13 @@ expand_last_partition()
     part_table_type=$(partx -v $disk | grep -o '\(dos\)\|\(gpt\)')
     eval $(partx -o NR,START,TYPE -P $disk | tail -n 1)
     # we delete, then re-create the partition with same information
-    # except the last sector for which we validate the default value.
+    # except the last sector (or size) for which we accept the
+    # default value.
     case "$part_table_type" in
         "dos")
             sfdisk --no-reread $disk >/dev/null 2>&1 << EOF || true
-$(sfdisk -d $disk | head -n -$((5-$NR)))
- $NR : start=$START, size=, Id=$TYPE
+$(sfdisk -d $disk | head -n -1)
+ $NR : start=$START, type=$TYPE
 EOF
             ;;
         "gpt")
