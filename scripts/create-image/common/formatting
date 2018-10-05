@@ -17,9 +17,8 @@
 # We try to create a USB stick as small as possible.
 # However, the embedded system may later by copied on a
 # potentially large disk.
-# Therefore, we specify the option '-T big' to mkfs.ext4.
-# This allows to select appropriate ext4 features even if the
-# filesystem might be considered 'small' at first.
+# As a result, we should select appropriate ext4 features even if
+# the filesystem might be considered 'small' at first.
 # This may seem cosmetic but it's not: if initialized with
 # '-T small' (or with no -T option and run on a small disk),
 # when we move to a large disk, resize2fs apparently
@@ -42,7 +41,7 @@ make_root_fs()
     rootfs_device=$1
     rootfs_label=$2
     features="$(echo $EXT4_FEATURES | tr ' ' ',')"
-    mkfs.ext4 -F -q -L $rootfs_label -T big -O "none,$features" -m 2 $rootfs_device
+    mkfs.ext4 -F -q -L $rootfs_label -b 4096 -O "none,$features" -m 2 $rootfs_device
 }
 
 setup_root_filesystem()
