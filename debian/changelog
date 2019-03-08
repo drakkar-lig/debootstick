@@ -1,3 +1,9 @@
+debootstick (2.2) unstable; urgency=medium
+
+  * Fix new LVM versions hanging in chroot (closes: Bug#923852).
+
+ -- Etienne Dublé <etienne.duble@gmail.com>  Fri, 8 Mar 2019 13:48:03 +0000
+
 debootstick (2.1) unstable; urgency=medium
 
   * Extensive tests.
