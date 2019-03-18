@@ -328,7 +328,7 @@ echo -n "I: cleaning up... "
 undo_all
 echo done
 
-chmod a+rw $final_image_abspath
+chmod u+rw $final_image_abspath
 stick_size=$(real_size_human_readable $final_image_abspath)
 echo "I: $final_image_path ready (size: ${stick_size}). "
 
