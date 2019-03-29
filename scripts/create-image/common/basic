@@ -19,6 +19,16 @@ missing_or_empty()
     echo 0
 }
 
+num_dir_entries() {
+    d="$1"
+    if [ ! -d "$d" ]
+    then
+        echo 0
+    else
+        ls -1 "$d" | wc -l
+    fi
+}
+
 abspath()
 {
     echo "$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
@@ -52,6 +62,24 @@ device_size_kb()
     echo $((
         $(blockdev --getsz $1) /2
     ))
+}
+
+size_as_kb()
+{
+    echo $(($(echo $1 | sed -e "s/M/*1024/" -e "s/G/*1024*1024/")))
+}
+
+check_integer() {
+    case "$1" in
+        ''|*[!0-9]*)
+            return 1 ;;   # not a number
+        *)
+            return 0 ;;   # number
+    esac
+}
+
+sum_lines() {
+    echo $(($(paste -sd+ -)))
 }
 
 # grep returns non-zero if no line is found.

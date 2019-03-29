@@ -9,17 +9,6 @@ BOOT_PARTITION_SIZE_MB=50
 # partitioning and formatting
 # ---------------------------
 
-partition_image()
-{
-    device=$1
-    sfdisk $device >/dev/null << EOF
-label: dos
-
-size=${BOOT_PARTITION_SIZE_MB}MiB,type=c
-type=83
-EOF
-}
-
 format_partition()
 {
     partnum=$1

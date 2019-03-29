@@ -1,0 +1,483 @@
+# vim: filetype=sh
+
+MIN_VOLUME_DATA_SIZE_KB=$((10*1024))
+EXT4_OVERHEAD=18
+FAT_OVERHEAD=10
+LVM_OVERHEAD_PERCENT=4
+BIOSBOOT_PARTITION_SIZE_KB=1024
+DRAFT_VOLUME_SIZE_ADDUP_KB=$((4*1024*1024))
+
+get_overhead() {
+    case "$1" in
+        ext4)
+            echo $EXT4_OVERHEAD
+            ;;
+        fat)
+            echo $FAT_OVERHEAD
+            ;;
+        efi)
+            echo $FAT_OVERHEAD
+            ;;
+    esac
+}
+
+get_fdisk_type()
+{
+    part_table_type="$1"
+    vol_subtype="$2"
+    case "$part_table_type-$vol_subtype" in
+        "dos-ext4")
+            echo 83
+            ;;
+        "dos-fat")
+            echo c
+            ;;
+        "dos-lvm")
+            echo 8e
+            ;;
+        "gpt-ext4")
+            echo 0FC63DAF-8483-4772-8E79-3D69D8477DE4
+            ;;
+        "gpt-fat")
+            echo EBD0A0A2-B9E5-4433-87C0-68B6B72699C7
+            ;;
+        "gpt-lvm")
+            echo E6D6D379-F507-44C2-A23C-238F2A3DF928
+            ;;
+        "gpt-bios")
+            echo 21686148-6449-6E6F-744E-656564454649
+            ;;
+        "gpt-efi")
+            echo C12A7328-F81F-11D2-BA4B-00A0C93EC93B
+            ;;
+        *)
+            layout_error "partition type '$vol_subtype' is not allowed with a '$part_table_type' partition table"
+            ;;
+    esac
+}
+
+layout_error() {
+    echo >&2
+    echo "E: invalid disk layout -- $1" >&2
+    return 1
+}
+
+save_volume_info() {
+    vol_type="$1"
+    vol_dir="$2"
+    shift 2
+    # check number of args
+    [ "$4" != "" ] || layout_error "invalid syntax '$*'"
+    shift
+    # check mountpoint
+    [ "$1" = "none" -o "${1:0:1}" = "/" ] || \
+        layout_error "invalid mount point: '$1' (should start with '/')"
+    # check subtype
+    case $2 in
+        fat|ext4)       # ok
+            ;;
+        efi|bios|lvm)
+            [ "$vol_type" = "part" ] || \
+                layout_error "'$2' type is allowed for partitions, not LVM volumes"
+            [ "$2" = "efi" -o "$1" = "none" ] || \
+                layout_error "'$2' partitions cannot be mounted, use 'none' as a mountpoint"
+            ;;
+        *)
+            [ "$vol_type" = "lvm" ] && \
+                layout_error "unknown lvm volume type '$2' -- allowed types: fat, ext4"
+            [ "$vol_type" = "part" ] && \
+                layout_error "unknown partition type '$2' -- allowed types: fat, ext4, efi, bios, lvm"
+            ;;
+    esac
+    # check size
+    case $3 in
+        max)       # ok
+            ;;
+        auto)
+            [ "$2" = "bios" -o "$1" != "none" ] || \
+                layout_error "cannot set size of '$2' partition to 'auto' unless you specify the mountpoint"
+            ;;
+        *[0-9][%GM])
+            check_integer ${3%?}    # last char removed, must be an integer
+            ;;
+        *)
+            layout_error "invalid size '$3'"
+            ;;
+    esac
+    # ok save info
+    mkdir -p $vol_dir
+    echo "$vol_type" > $vol_dir/type
+    echo "$1" > $vol_dir/mountpoint
+    echo "$2" > $vol_dir/subtype
+    echo "$3" > $vol_dir/size
+}
+
+get_vol_attr_files() {
+    attr="$1"
+    ls -1 | sort -n | sed -e "s/$/\/$attr/"
+}
+
+count_attr_matches() {
+    cd "$1"
+    files="$(get_vol_attr_files $2)"
+    grep $3 $files | wc -l
+    cd - >/dev/null
+}
+
+check_layout() {
+    in_layout_dir=$1
+
+    # check that at least one partition was defined
+    [ -d "$in_layout_dir/partitions" ] || \
+        layout_error "no partitions defined"
+
+    # check that, except for the last one, size of partitions is not "max" or "<xx>%"
+    cd "$in_layout_dir/partitions"
+    size_files="$(get_vol_attr_files size | head -n -1)"
+    [ $(grep max $size_files | wc -l) -eq 0 ] || \
+        layout_error "'max' keyword is only allowed for the last partition"
+    [ $(grep "%$" $size_files | wc -l) -eq 0 ] || \
+        layout_error "only the last partition can have its size declared as a percentage"
+    cd - >/dev/null
+
+    # check that no more than 1 lvm volume has size="max"
+    if [ -d "$in_layout_dir/lvm_volumes" ]
+    then
+        [ $(count_attr_matches "$in_layout_dir/lvm_volumes" size max) -lt 2 ] || \
+            layout_error "'max' keyword is only allowed for at most 1 lvm volume"
+    fi
+
+    # check that at most one lvm, efi, bios partition is declared
+    for special_subtype in lvm efi bios
+    do
+        [ $(count_attr_matches "$in_layout_dir/partitions" subtype $special_subtype) -lt 2 ] || \
+            layout_error "cannot have several partitions with type '$special_subtype'"
+    done
+
+    # if lvm volumes are declared, check that an lvm partition exists
+    if [ $(ls -1 "$in_layout_dir/lvm_volumes" | wc -l) -gt 0 ]
+    then
+        [ $(count_attr_matches "$in_layout_dir/partitions" subtype lvm) -eq 1 ] || \
+            layout_error "cannot declare lvm volumes unless you declare a partition with type lvm"
+    fi
+
+    # check that mount points are not repeated
+    mountpoints="$(cat "$in_layout_dir"/*/*/mountpoint | grep -vx none)"
+    [ $(echo "$mountpoints" | wc -w) -eq $(echo "$mountpoints" | uniq | wc -w) ] || \
+        layout_error "repeated mount point"
+}
+
+volume_is_partition() {
+    parent_dir="$(basename "$(dirname "$1")")"
+    [ "$parent_dir" = "partitions" ] && return 0    # yes
+    return 1                                        # no
+}
+
+check_layout_updates() {
+    in_def_layout_dir=$1
+    in_new_layout_dir=$2
+
+    # check that important data was not removed or changed from the default layout
+    for defvol in $in_def_layout_dir/*/*
+    do
+        defvol_subtype=$(cat "$defvol/subtype")
+        defvol_mountpoint=$(cat "$defvol/mountpoint")
+
+        newvol_found=0
+        for newvol in $in_new_layout_dir/*/*
+        do
+            newvol_subtype=$(cat "$newvol/subtype")
+            newvol_mountpoint=$(cat "$newvol/mountpoint")
+            if [ "$defvol_mountpoint" = "none" -a "$newvol_subtype" = "$defvol_subtype" ]
+            then
+                newvol_found=1
+                break
+            fi
+            if [ "$defvol_mountpoint" != "none" -a "$newvol_mountpoint" = "$defvol_mountpoint" ]
+            then
+                [ "$newvol_subtype" = "$defvol_subtype" ] || \
+                    layout_error "'$defvol_mountpoint' volume type cannot be changed from default disk layout ($defvol_subtype)"
+                newvol_found=1
+                break
+            fi
+        done
+
+        if [ $newvol_found -eq 0 ]
+        then
+            [ "$defvol_mountpoint" = "none" ] && info_vol1="$defvol_subtype" || info_vol1="'$defvol_mountpoint'"
+            volume_is_partition "$defvol" && info_vol2="partition" || info_vol2="lvm volume"
+            layout_error "$info_vol1 $info_vol2 was removed from default disk layout"
+        fi
+    done
+
+    [ $(cat "$in_def_layout_dir/part_table_type") = $(cat "$in_new_layout_dir/part_table_type") ] || \
+        layout_error "changing partition table type (gpt <-> dos) from default disk layout is not allowed"
+}
+
+parse_layout() {
+    in_layout_dir="$1"
+    in_layout_file="$2"
+
+    mkdir -p "$in_layout_dir"
+
+    sed -e 's/#.*$//' $in_layout_file | while read inst args
+    do
+        case "$inst" in
+            "")
+                ;;
+            "partition")
+                part_num=$(num_dir_entries "$in_layout_dir/partitions")
+                part_dir="$in_layout_dir/partitions/$part_num"
+                save_volume_info part "$part_dir" "$inst" $args
+                ;;
+            "lvm_volume")
+                vol_num=$(num_dir_entries "$in_layout_dir/lvm_volumes")
+                vol_dir="$in_layout_dir/lvm_volumes/$vol_num"
+                save_volume_info lvm "$vol_dir" "$inst" $args
+                ;;
+            "gpt"|"dos")
+                [ ! -f "$in_layout_dir/part_table_type" ] || \
+                    layout_error "several declarations of the partition table type (gpt|dos)"
+                echo "$inst" > $in_layout_dir/part_table_type
+                ;;
+            *)
+                layout_error "invalid syntax '$inst'"
+        esac
+    done
+
+    # check that partition table type was defined
+    [ -f "$in_layout_dir/part_table_type" ] || \
+        layout_error "partition table type is not defined (gpt or dos)"
+
+    # compute fdisk type of partitions
+    part_table_type=$(cat "$in_layout_dir"/part_table_type)
+    for vol in $(ls -1d "$in_layout_dir"/partitions/*)
+    do
+        vol_subtype=$(cat $vol/subtype)
+        get_fdisk_type $part_table_type $vol_subtype > $vol/fdisk_type
+    done
+
+    # add a flag to last partition and lvm volume
+    for vol_type_dir in partitions lvm_volumes
+    do
+        last_vol=$(ls -1 "$in_layout_dir"/$vol_type_dir/ | sort -n | tail -n 1)
+        if [ ! -z "$last_vol" ]
+        then
+            touch "$vol/last"
+        fi
+    done
+}
+
+estimate_minimal_vol_size_kb()
+{
+    in_vol="$1"
+    in_target_fs="$2"
+
+    vol_mountpoint=$(cat "$in_vol/mountpoint")
+    vol_subtype=$(cat "$in_vol/subtype")
+    target_fs_path="$in_target_fs/$vol_mountpoint"
+
+    if [ -d "$target_fs_path" ]
+    then
+        data_size_kb=$(estimated_size_kb "$target_fs_path")
+    else
+        data_size_kb=0
+    fi
+
+    min_kb=$MIN_VOLUME_DATA_SIZE_KB
+    data_size_kb=$((data_size_kb > min_kb ? data_size_kb : min_kb))
+
+    overheads=$(get_overhead $vol_subtype)
+    if ! volume_is_partition "$in_vol"
+    then
+        overheads="$overheads $LVM_OVERHEAD_PERCENT"
+    fi
+    echo $(apply_overheads_percent $data_size_kb $overheads)
+}
+
+fixed_size_requested()
+{
+    vol="$1"
+
+    if [ $(cat "$vol/size" | grep "[GM]$" | wc -l) -eq 1 ]
+    then
+        return 0    # yes
+    else
+        return 1    # no
+    fi
+}
+
+should_apply_fixed_size()
+{
+    mode="$1"
+    vol="$2"
+
+    # check that a fixed size is requested
+    if ! fixed_size_requested "$vol"
+    then
+        return 1    # no
+    fi
+
+    # check if we are in live mode
+    if [ "$mode" = "live" ]
+    then
+        return 0    # yes
+    fi
+
+    # check if volume is a partition and not last one
+    if [ $(cat "$vol/type") = "part" -a ! -f "$vol/last" ]
+    then
+        return 0    # yes
+    fi
+
+    # in other cases, do not apply the requested fixed size
+    return 1        # no
+}
+
+should_extend_up_to_the_end()
+{
+    mode="$1"
+    vol="$2"
+
+    # check that this is last volume or partition
+    if [ ! -f "$vol/last" ]
+    then
+        return 1    # no
+    fi
+
+    # check whether mode is 'live'
+    if [ "$mode" != "live" ]
+    then
+        return 0    # yes
+    fi
+
+    # check that a fixed size is requested
+    if fixed_size_requested "$vol"
+    then
+        return 1    # no
+    else
+        return 0    # yes   # TODO: handle percentages
+    fi
+}
+
+store_computed_size()
+{
+    mode="$1"
+    vol="$2"
+
+    read needed_size_kb
+
+    # in the case of the 'draft' image, we should apply a big margin,
+    # except for the partition with subtype "lvm".
+    # (the size of this specific partition is obtained by summing the size
+    # of lvm volumes, and all of them already include a margin.)
+    if [ "$mode" = "draft" -a $(cat "$vol"/subtype) != "lvm" ]
+    then
+        needed_size_kb=$((needed_size_kb + DRAFT_VOLUME_SIZE_ADDUP_KB))
+    fi
+
+    echo $needed_size_kb > $vol/needed_size_kb
+
+    if should_extend_up_to_the_end $mode $vol
+    then
+        echo 0 > $vol/applied_size_kb   # 0 means 'fill available space'
+    else
+        cp $vol/needed_size_kb $vol/applied_size_kb
+    fi
+}
+
+compute_applied_sizes()
+{
+    in_mode="$1"
+    in_layout_dir="$2"
+    in_target_fs="$3"
+
+    # estimate data size of each volume with a mountpoint
+    #
+    # we have to take care not adding up size of sub-mounts
+    # such as in the case of '/' and '/boot' for instance.
+    #
+    # precedure:
+    # 1 - 1st loop: estimate whole tree size at each mountpoint
+    #     (ignoring existence of possible sub-mounts)
+    # 2 - intermediary line (with 'sort | tac' processing):
+    #     sort to get deepest sub-mounts first
+    # 3 - 2nd loop: remove from first datasize estimation
+    #     the datasize of sub-mounts. To ease this, we use
+    #     a temporary file hierarchy "$data_size_tree":
+    #     for each mountpoint, we record in parent dirs, up to "/",
+    #     the datasize we already counted at this step.
+    data_size_tree=$(mktemp -d)
+    for vol in $(ls -1d "$in_layout_dir"/*/* | sort -n)
+    do
+        vol_mountpoint=$(cat "$vol/mountpoint")
+        if [ "$vol_mountpoint" != "none" ]
+        then
+            target_fs_path="$in_target_fs/$vol_mountpoint"
+            if [ -d "$target_fs_path" ]
+            then
+                data_size_kb=$(estimated_size_kb "$target_fs_path")
+            else
+                data_size_kb=0
+            fi
+            echo "$vol_mountpoint" "$data_size_kb" "$vol"
+        fi
+    done | sort | tac | while read vol_mountpoint data_size_kb vol
+    do
+        mp=$vol_mountpoint
+        mkdir -p "$data_size_tree/$mp"
+        if [ -f "$data_size_tree/$mp/.submounts_data_size_kb" ]
+        then
+            submounts_data_size_kb=$(cat $data_size_tree/$mp/.submounts_data_size_kb)
+            data_size_kb=$((data_size_kb-submounts_data_size_kb))
+        fi
+        echo $data_size_kb > $vol/data_size_kb
+        while [ "$mp" != "/" ]
+        do
+            mp=$(dirname $mp)
+            if [ -f "$data_size_tree/$mp/.submounts_data_size_kb" ]
+            then
+                submounts_data_size_kb=$(cat $data_size_tree/$mp/.submounts_data_size_kb)
+            else
+                submounts_data_size_kb=0
+            fi
+            echo $((data_size_kb+submounts_data_size_kb)) > \
+                        "$data_size_tree/$mp/.submounts_data_size_kb"
+        done
+    done
+    rm -rf $data_size_tree
+
+    # compute the size we will apply to each volume.
+    #
+    # we sort volumes to list lvm volumes before partitions.
+    # this allows to know the size of all lvm volumes when
+    # we have to compute the size of the lvm-type partition.
+    for vol in $(ls -1d "$in_layout_dir"/*/* | sort -n)
+    do
+        vol_size=$(cat "$vol/size")
+        vol_type=$(cat "$vol/type")
+        vol_subtype=$(cat "$vol/subtype")
+        fixed_size=0
+        if should_apply_fixed_size $in_mode $vol
+        then
+            # fixed size
+            size_as_kb $vol_size
+        elif [ "$vol_subtype" = "bios" ]
+        then
+            # bios boot partition is special, we know which size is recommended
+            echo $BIOSBOOT_PARTITION_SIZE_KB
+        elif [ "$vol_subtype" = "lvm" ]
+        then
+            # lvm-type partition => sum the size of all lvm volumes
+            cat "$in_layout_dir"/lvm_volumes/*/needed_size_kb | \
+                    sum_lines
+        else
+            # variable size
+            estimate_minimal_vol_size_kb $vol $in_target_fs
+        fi | store_computed_size $in_mode $vol
+    done
+
+    # compute the overall image size
+    cat "$in_layout_dir"/partitions/*/needed_size_kb | \
+                    sum_lines > "$in_layout_dir"/needed_size_kb
+}

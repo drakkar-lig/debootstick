@@ -5,7 +5,7 @@ VERSION='@VERSION@'     # updated at install time
 IMAGE_SIZE_MARGIN_KB=0  # fs size estimation is enough pessimistic
 MKSQUASHFS_OPTS="-b 1M -comp xz"
 ONE_GIGABYTE_KB=$((1024*1024))
-MAX_WORK_IMAGE_OVERHEAD_KB=$((2*ONE_GIGABYTE_KB))
+MAX_WORK_IMAGE_OVERHEAD_KB=$((20*ONE_GIGABYTE_KB))
 DEBUG=0
 DD="dd status=none"
 DBSTCK_DIR="/usr/share/debootstick"
@@ -19,6 +19,7 @@ root_password_request="NO_REQUEST"
 root_password_on_first_boot=0
 config_grub_on_serial_line=0
 system_type="live"
+layout_file="default"
 kernel_bootargs=""
 config_hostname=""
 chroot_in=""
@@ -72,6 +73,10 @@ parse_args()
                 system_type="$2"
                 shift 2
             ;;
+            --disk-layout)
+                layout_file="$2"
+                shift 2
+            ;;
             *)
                 break
             ;;
@@ -98,6 +103,16 @@ case "$system_type" in
         echo "--system-type option value must be either 'live' or 'installer'." >&2
         exit 1
 esac
+
+# let's verify layout_file variable
+if [ "$layout_file" != "default" ]
+then
+    if [ ! -r "$layout_file" ]
+    then
+        echo "disk layout file '$layout_file' not found or not readable." >&2
+        exit 1
+    fi
+fi
 
 # ensure we are root
 if [ $(id -u) -ne 0 ]; then
@@ -197,15 +212,36 @@ echo "I: detected target system: $(target_get_name)"
 start_failsafe_mode --toplevel final_cleanup
 
 failsafe mkdir -p $DBSTCK_TMPDIR
-cd $DBSTCK_TMPDIR
 
+# step: parse and verify the layout file
+default_layout_file="$DBSTCK_DIR/disk-layouts/target/$target_type/disk-layout"
+if [ "$layout_file" = "default" ]
+then
+    layout_file="$default_layout_file"
+    echo "I: using default disk layout: $default_layout_file"
+else
+    layout_file=$(abspath "$layout_file")
+    echo -n "I: verifying disk layout file... "
+fi
+layout_dir="$DBSTCK_TMPDIR/.layout"
+parse_layout "$layout_dir" < "$layout_file"
+check_layout "$layout_dir"
+if [ "$layout_file" != "$default_layout_file" ]
+then
+    def_layout_dir="$DBSTCK_TMPDIR/.def-layout"
+    parse_layout "$def_layout_dir" < "$default_layout_file"
+    check_layout_updates "$def_layout_dir" "$layout_dir"
+    echo done
+fi
+
+cd $DBSTCK_TMPDIR
 # execute target-specific preliminary steps, if any
 optional_target_preliminary_steps ${STICK_OS_ID}
 
 # step: compute a stick size large enough for our work
 # (i.e. not for the final minimized version)
 echo -n "I: draft image - computing a size large enough... "
-fs_size_estimation_kb=$(estimated_size_kb $ORIG_TREE)
+fs_size_estimation_kb=$(estimated_size_kb "$ORIG_TREE")
 draft_stick_size_kb=$((fs_size_estimation_kb +
                        MAX_WORK_IMAGE_OVERHEAD_KB))
 echo done
@@ -214,14 +250,14 @@ echo done
 echo -n "I: draft image - partitioning and formatting... "
 create_formatted_image \
         draft \
-        $draft_stick_size_kb \
+        "$ORIG_TREE" \
         $STICK_OS_ID
 echo done
 
 # step: copy original tree to work image and modify it
 echo -n "I: draft image - copying filesystem tree... "
 cd $draft_rootfs_mountpoint
-cp -a $ORIG_TREE/* .
+cp -a "$ORIG_TREE"/* .
 echo done
 
 # execute target-specific preparation steps, if any
@@ -281,7 +317,7 @@ echo done
 echo -n "I: final image - partitioning and formatting... "
 create_formatted_image \
         final \
-        $final_stick_size_kb \
+        $draft_rootfs_mountpoint \
         ${STICK_OS_ID} \
         $final_image_abspath
 echo done

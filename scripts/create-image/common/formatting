@@ -79,13 +79,38 @@ get_partition_devices()
     kpartx -l $image_device | awk '{ print "/dev/mapper/"$1 }'
 }
 
+partition_image()
+{
+    image_path="$1"
+    layout_dir="$2"
+
+    {
+        part_table_type=$(cat "$layout_dir"/part_table_type)
+        echo "label: $part_table_type"
+        echo
+        for vol in $(ls -1d "$layout_dir"/partitions/* | sort -n)
+        do
+            vol_id="$(basename $vol)"
+            applied_size_kb=$(cat $vol/applied_size_kb)
+            fdisk_type=$(cat $vol/fdisk_type)
+            partdef="type=$fdisk_type"
+            if [ $applied_size_kb -gt 0 ]
+            then
+                partdef="size=${applied_size_kb}KiB,$partdef"
+            fi
+            echo $partdef
+        done
+    } | sfdisk "$image_path" >/dev/null
+}
+
 create_formatted_image()
 {
     image_name=$1   # 'draft' or 'final'
-    stick_size_kb=$2
+    target_fs="$2"
     stick_os_id=$3
     image_file="$4"
     work_dir="$DBSTCK_TMPDIR/$image_name"
+    layout_dir="$DBSTCK_TMPDIR/.layout"
     if [ -z "$image_file" ]
     then
         image_file="$work_dir/file"
@@ -93,12 +118,15 @@ create_formatted_image()
 
     mkdir -p "$work_dir"
 
+    compute_applied_sizes $image_name $layout_dir "$target_fs"
+
     # create image file
     rm -f "$image_file"
+    stick_size_kb=$(cat $layout_dir/needed_size_kb)
     $DD bs=1024 seek=$stick_size_kb count=0 of="$image_file"
 
-    # call target_specific formatting function
-    target_partition_image "$image_file"
+    # create partitions
+    partition_image "$image_file" "$layout_dir"
 
     # let the kernel know about this device
     image_device=$(losetup -f)

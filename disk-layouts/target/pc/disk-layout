@@ -1,0 +1,10 @@
+# gpt or dos partition table
+gpt
+
+# ordered list of partitions (with mountpoint, type, size)
+partition   /boot/efi  efi     auto
+partition   none       bios    auto
+partition   none       lvm     max
+
+# lvm volumes (with mountpoint, type, size)
+lvm_volume  /          ext4    max

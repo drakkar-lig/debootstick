@@ -8,10 +8,11 @@ clean:
 DSDIR=$(DESTDIR)/usr/share/debootstick
 install:
 	set -e
-	mkdir -p $(DSDIR)/scripts
+	mkdir -p $(DSDIR)/scripts $(DSDIR)/disk-layouts
 	mkdir -p $(DESTDIR)/usr/sbin
 
 	cp -ar scripts/* $(DSDIR)/scripts/
+	cp -ar disk-layouts/* $(DSDIR)/disk-layouts/
 
 	sed 's/@VERSION@/$(VERSION)/g' debootstick >$(DESTDIR)/usr/sbin/debootstick
 	chown root:root $(DESTDIR)/usr/sbin/debootstick

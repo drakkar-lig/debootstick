@@ -3,21 +3,6 @@
 # partitioning and formatting
 # ---------------------------
 
-# This function must partition an image file.
-#
-# Parameters:
-# 1: file path of the image file
-#
-# debootstick requires at least one partition of
-# type 8e00 (Linux LVM). It must be the last partition
-# of the image. It will hold the root filesystem.
-
-partition_image()
-{
-    device=$1
-    # quiet sgdisk <options>...
-}
-
 # This function will be called once for each partition
 # except the last one (last one is managed by debootstick core).
 #

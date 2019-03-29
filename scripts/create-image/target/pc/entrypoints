@@ -22,10 +22,6 @@ target_final_customization_steps() {
 # for details about the following functions
 # see 'formatting' file
 
-target_partition_image() {
-    partition_image $@
-}
-
 target_format_partition() {
     format_partition $@
 }

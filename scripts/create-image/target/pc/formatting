@@ -6,16 +6,6 @@ FAT_OVERHEAD_PERCENT=10
 # partitioning and formatting
 # ---------------------------
 
-partition_image()
-{
-    device=$1
-    efi_partition_size_kb=$(get_efi_partition_size_kb)
-    quiet sgdisk \
-            -n 1:0:+${efi_partition_size_kb}K -t 1:ef00 \
-            -n 2:0:+${BIOSBOOT_PARTITION_SIZE_KB}K -t 2:ef02 \
-            -n 3:0:0 -t 3:8e00 $device
-}
-
 format_partition()
 {
     partnum=$1

@@ -1,0 +1,6 @@
+# gpt or dos partition table
+dos
+
+# ordered list of partitions (with mountpoint, type, size)
+partition /boot  fat     50M
+partition /      ext4    max
