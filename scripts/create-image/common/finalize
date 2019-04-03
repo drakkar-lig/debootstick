@@ -9,8 +9,9 @@ finalize_fs()
     rm -rf proc/* sys/* dev/* tmp/* \
             $(find run -type f) var/cache/* var/lock
 
-    # move the existing init
-    mv sbin/init sbin/init.orig
-    cd sbin
-    ln -s /opt/debootstick/live/init/first-init.sh init
+    # install debootstick init hook on getty command
+    getty_command="$(realpath --relative-to . "$(readlink -f sbin/getty)")"
+    mv "$getty_command" "${getty_command}.orig"
+    ln -s /opt/debootstick/live/init/getty-hook.sh "$getty_command"
+    echo "GETTY_COMMAND=$getty_command" >> dbstck.conf
 }
