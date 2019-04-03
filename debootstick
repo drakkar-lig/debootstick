@@ -290,8 +290,8 @@ cp -a $draft_rootfs_mountpoint/* $final_rootfs_mountpoint/
 echo done
 release_image draft     # not needed anymore
 
-# add the dbstck.conf file
-cat > $final_rootfs_mountpoint/dbstck.conf << EOF
+# complete the dbstck.conf file
+cat >> $final_rootfs_mountpoint/dbstck.conf << EOF
 STICK_OS_ID=$STICK_OS_ID
 USE_LVM=$(target_use_lvm)
 SYSTEM_TYPE=$system_type
