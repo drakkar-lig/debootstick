@@ -70,7 +70,27 @@ echo "** WARNING: Press any key NOW to cancel this process."
 read -t 10 -n 1 && { echo "Aborted!"; exit 1; }
 echo "** Going on."
 
+enforce_lvm_cmd() {
+    udevadm settle; sync; sync
+    while true; do
+        # handle rare failures
+        "$@" 2>/dev/null && break || sleep 1
+    done
+}
+
 {
+    echo MSG making sure ${TARGET} is not used...
+    pvs --no-headings -o pv_name | while read pv_name
+    do
+        [ "$(part_to_disk $pv_name)" == "$TARGET" ] || continue
+        vg=$(vgs --select "pv_name = $pv_name" --noheadings | awk '{print $1}')
+        if [ -n "$vg" ]; then
+            enforce_lvm_cmd vgchange -an "$vg"
+            enforce_lvm_cmd vgremove -ff -y "$vg"
+        fi
+        enforce_lvm_cmd pvremove -ff -y $pv_name
+    done
+
     echo MSG copying the partition scheme...
     sgdisk -Z ${TARGET}
     sgdisk -R ${TARGET} $ORIGIN
@@ -95,14 +115,14 @@ echo "** Going on."
     echo MSG moving the lvm volume content on ${TARGET}...
     part_origin=$(get_part_device ${ORIGIN} $pv_part_num)
     part_target=$(get_part_device ${TARGET} $pv_part_num)
-    yes | pvcreate -ff $part_target
-    vgextend $LVM_VG $part_target
+    enforce_lvm_cmd pvcreate -ff -y $part_target
+    enforce_lvm_cmd vgextend $LVM_VG $part_target
     pvchange -x n $part_origin
     pvmove -i 1 $part_origin | while read pv action percent
     do
         echo REFRESHING_MSG "$percent"
     done
-    vgreduce $LVM_VG $part_origin
+    enforce_lvm_cmd vgreduce $LVM_VG $part_origin
     echo REFRESHING_DONE
 
     echo MSG filling the space available...
@@ -113,9 +133,8 @@ echo "** Going on."
     $BOOTLOADER_INSTALL ${TARGET}
 
     echo MSG making sure ${ORIGIN} is not used anymore...
-    pvremove $part_origin
-    sync; sync
-    partx -d ${ORIGIN}
+    enforce_lvm_cmd pvremove -ff -y $part_origin
+    enforce_lvm_cmd partx -d ${ORIGIN}
 
     echo RETURN 0
 } | filter_quiet
