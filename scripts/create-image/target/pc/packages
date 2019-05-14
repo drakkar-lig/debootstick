@@ -2,7 +2,7 @@
 
 custom_packages()
 {
-    echo grub-pc
+    echo grub-pc initramfs-tools
 }
 
 kernel_default_package()
