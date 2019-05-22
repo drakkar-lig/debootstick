@@ -1,3 +1,11 @@
+debootstick (2.3) unstable; urgency=medium
+
+  * Fix new LVM versions hanging in migration procedure (closes: Bug#928080).
+  * Fix migration script sometimes failing (closes: Bug#929355).
+  * Fix handling of chroots based on Ubuntu >= 18.04 (closes: Bug#929356).
+
+ -- Etienne Dublé <etienne.duble@gmail.com>  Wed, 22 May 2019 13:56:42 +0000
+
 debootstick (2.2) unstable; urgency=medium
 
   * Fix new LVM versions hanging in chroot (closes: Bug#923852).
