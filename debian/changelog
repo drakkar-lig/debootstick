@@ -1,4 +1,4 @@
-debootstick (2.3) unstable; urgency=medium
+debootstick (2.3) experimental; urgency=medium
 
   * Fix new LVM versions hanging in migration procedure (closes: Bug#928080).
   * Fix migration script sometimes failing (closes: Bug#929355).
