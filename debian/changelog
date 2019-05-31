@@ -1,3 +1,9 @@
+debootstick (2.4) unstable; urgency=medium
+
+  * Just rebuild for upload to unstable.
+
+ -- Etienne Dublé <etienne.duble@gmail.com>  Fri, 31 May 2019 18:01:03 +0000
+
 debootstick (2.3) experimental; urgency=medium
 
   * Fix new LVM versions hanging in migration procedure (closes: Bug#928080).
