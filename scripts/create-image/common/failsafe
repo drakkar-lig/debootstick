@@ -20,11 +20,11 @@
 undo_all()
 {
     # run saved failsafe commands prefixed with 'undo_'
-    eval "$(echo -n "$failsafe_commands" | \
+    eval "$(tac $FAILSAFE_COMMANDS | \
             awk '{print "undo_" $0}')"
 
-    # flush variable 'failsafe_commands'
-    failsafe_commands=""
+    # flush file 'FAILSAFE_COMMANDS'
+    echo -n > $FAILSAFE_COMMANDS
 }
 
 on_sigint()
@@ -75,9 +75,11 @@ on_exit()
         fi
         echo -n "I: restoring a clean state... "
         undo_all
+        rm $FAILSAFE_COMMANDS
         echo "done"
     else
         undo_all
+        rm $FAILSAFE_COMMANDS
     fi
 
     # call an additional cleanup function
@@ -100,6 +102,9 @@ start_failsafe_mode()
 
     # allow with constructs (see f_with function)
     alias with="while f_with"
+
+    # create a temporary file to save commands
+    FAILSAFE_COMMANDS=$(mktemp)
 
     # bash does not expand aliases by default,
     # when running a script.
@@ -189,11 +194,7 @@ undo_chroot()
 
 failsafe()
 {
-    $*  &&  \
-    failsafe_commands="$(
-        echo "$*"
-        echo -n "$failsafe_commands"
-    )"
+    $* &&  echo "$*" >> $FAILSAFE_COMMANDS
 }
 
 undo()
@@ -201,17 +202,14 @@ undo()
     # undo-ing one failsafe operation only
 
     # we have to remove this operation from
-    # variable 'failsafe_commands'.
+    # file 'FAILSAFE_COMMANDS'.
     # first, we escape it in order to use
     # it in a sed statement below.
     escaped_cmd="$(
         echo "$*" | \
             sed -e 's/[\/&]/\\&/g')"
     # and now we remove it
-    failsafe_commands="$(
-        echo -n "$failsafe_commands" | \
-            sed -e "/^$escaped_cmd\$/d"
-    )"
+    sed -i -e "/^$escaped_cmd\$/d" $FAILSAFE_COMMANDS
 
     # of course we really undo it
     eval "undo_$*"
