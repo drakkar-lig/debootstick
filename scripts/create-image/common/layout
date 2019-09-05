@@ -69,47 +69,69 @@ save_volume_info() {
     # check number of args
     [ "$4" != "" ] || layout_error "invalid syntax '$*'"
     shift
+    mountpoint="$1"
+    subtype="$2"
+    size="$3"
     # check mountpoint
-    [ "$1" = "none" -o "${1:0:1}" = "/" ] || \
-        layout_error "invalid mount point: '$1' (should start with '/')"
+    [ "$mountpoint" = "none" -o "${mountpoint:0:1}" = "/" ] || \
+        layout_error "invalid mount point: '$mountpoint' (should start with '/')"
     # check subtype
-    case $2 in
+    case $subtype in
         fat|ext4)       # ok
             ;;
         efi|bios|lvm)
             [ "$vol_type" = "part" ] || \
-                layout_error "'$2' type is allowed for partitions, not LVM volumes"
-            [ "$2" = "efi" -o "$1" = "none" ] || \
-                layout_error "'$2' partitions cannot be mounted, use 'none' as a mountpoint"
+                layout_error "'$subtype' type is allowed for partitions, not LVM volumes"
+            [ "$subtype" = "efi" -o "$mountpoint" = "none" ] || \
+                layout_error "'$subtype' partitions cannot be mounted, use 'none' as a mountpoint"
             ;;
         *)
             [ "$vol_type" = "lvm" ] && \
-                layout_error "unknown lvm volume type '$2' -- allowed types: fat, ext4"
+                layout_error "unknown lvm volume type '$subtype' -- allowed types: fat, ext4"
             [ "$vol_type" = "part" ] && \
-                layout_error "unknown partition type '$2' -- allowed types: fat, ext4, efi, bios, lvm"
+                layout_error "unknown partition type '$subtype' -- allowed types: fat, ext4, efi, bios, lvm"
             ;;
     esac
     # check size
-    case $3 in
+    case $size in
         max)       # ok
             ;;
         auto)
-            [ "$2" = "bios" -o "$1" != "none" ] || \
-                layout_error "cannot set size of '$2' partition to 'auto' unless you specify the mountpoint"
+            [ "$subtype" = "bios" -o "$mountpoint" != "none" ] || \
+                layout_error "cannot set size of '$subtype' partition to 'auto' unless you specify the mountpoint"
             ;;
         *[0-9][%GM])
-            check_integer ${3%?}    # last char removed, must be an integer
+            check_integer ${size%?}    # last char removed, must be an integer
             ;;
         *)
-            layout_error "invalid size '$3'"
+            layout_error "invalid size '$size'"
             ;;
     esac
     # ok save info
     mkdir -p $vol_dir
+    # compute a volume label when relevant
+    case $subtype in
+        fat|ext4)
+            if [ "$mountpoint" = "/" ]
+            then
+                echo "ROOT_FS" > $vol_dir/label
+            elif [ "$mountpoint" != "none" ]
+            then
+                basename "$mountpoint" | tr a-z A-Z > $vol_dir/label
+            elif [ "$vol_type" = "lvm" ]
+            then
+                # having a label is mandatory for LVM volumes
+                echo "lvol$(basename $vol_dir)" > $vol_dir/label
+            fi
+            ;;
+        efi)
+            echo EFI > $vol_dir/fs_label
+            ;;
+    esac
     echo "$vol_type" > $vol_dir/type
-    echo "$1" > $vol_dir/mountpoint
-    echo "$2" > $vol_dir/subtype
-    echo "$3" > $vol_dir/size
+    echo "$mountpoint" > $vol_dir/mountpoint
+    echo "$subtype" > $vol_dir/subtype
+    echo "$size" > $vol_dir/size
 }
 
 get_vol_attr_files() {
@@ -260,10 +282,10 @@ parse_layout() {
     # add a flag to last partition and lvm volume
     for vol_type_dir in partitions lvm_volumes
     do
-        last_vol=$(ls -1 "$in_layout_dir"/$vol_type_dir/ | sort -n | tail -n 1)
-        if [ ! -z "$last_vol" ]
+        num_last_vol=$(ls -1 "$in_layout_dir"/$vol_type_dir/ | sort -n | tail -n 1)
+        if [ ! -z "$num_last_vol" ]
         then
-            touch "$vol/last"
+            touch "$in_layout_dir/$vol_type_dir/$num_last_vol/last"
         fi
     done
 }
@@ -422,7 +444,7 @@ compute_applied_sizes()
             fi
             echo "$vol_mountpoint" "$data_size_kb" "$vol"
         fi
-    done | sort | tac | while read vol_mountpoint data_size_kb vol
+    done | sort -k 1,1 | tac | while read vol_mountpoint data_size_kb vol
     do
         mp=$vol_mountpoint
         mkdir -p "$data_size_tree/$mp"
@@ -452,7 +474,7 @@ compute_applied_sizes()
     # we sort volumes to list lvm volumes before partitions.
     # this allows to know the size of all lvm volumes when
     # we have to compute the size of the lvm-type partition.
-    for vol in $(ls -1d "$in_layout_dir"/*/* | sort -n)
+    for vol in $(ls -1d "$in_layout_dir"/*/* | sort)
     do
         vol_size=$(cat "$vol/size")
         vol_type=$(cat "$vol/type")

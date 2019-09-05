@@ -139,7 +139,8 @@ get_vg_name()
     esac
 }
 
-get_rootfs_label()
+get_rootfs_uuid()
 {
-    echo "ROOT-$1"
+    image_name="$1"     # final or draft
+    cat $DBSTCK_TMPDIR/$image_name/rootfs_vol/uuid
 }

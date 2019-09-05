@@ -73,6 +73,8 @@ on_exit()
             echo "E: an error occured."
             echo "E: did you try 'debootstick --help-os-support'?"
         fi
+        echo "running a shell before restoring"
+        bash
         echo -n "I: restoring a clean state... "
         undo_all
         rm $FAILSAFE_COMMANDS

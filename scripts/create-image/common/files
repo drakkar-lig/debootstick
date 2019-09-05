@@ -1,20 +1,15 @@
 # vim: filetype=sh
 
-update_fstab()
+generate_fstab()
 {
-    stick_os_id="$1"
-    rootfs_label="$(get_rootfs_label $stick_os_id)"
+    layout_dir="$1"
 
-    # remove the line with "UNCONFIGURED"
-    # and add or update the line mounting /
-    filtered_content=$(cat /etc/fstab |                 \
-                        happy_grep -vw "UNCONFIGURED" | \
-                        happy_grep -vw "/"
-    )
-    cat > /etc/fstab << EOF
-LABEL=$rootfs_label / ext4 errors=remount-ro 0 1
-$filtered_content
-EOF
+    echo "# <file system> <mount point>   <type>  <options>       <dump>  <pass>" > etc/fstab
+
+    generate_mount_info "$layout_dir" | while read vol_dir mounttype uuid vol_mountpoint
+    do
+        echo "UUID=$uuid    $vol_mountpoint $mounttype    errors=remount-ro   0   1" >> etc/fstab
+    done
 }
 
 generate_hosts_file()

@@ -3,20 +3,6 @@
 # grub configuration
 # ------------------
 
-prepare_rootfs()
-{
-    # if update-grub is called as part of the package installation
-    # it should properly find our virtual device.
-    # (we will properly install the bootloader on the final device
-    # anyway, this is only useful to avoid warnings)
-    update_grup_device_map
-}
-
-cleanup_rootfs()
-{
-    rm boot/grub/device.map
-}
-
 # let grub find our virtual device
 update_grup_device_map()
 {
@@ -151,12 +137,11 @@ uefi_binary_image_info() {
 
 build_uefi_binary_image()
 {
-    stick_os_id="$1"
-    rootfs_label="$(get_rootfs_label $stick_os_id)"
+    out_dir="$1"
     set -- $(uefi_binary_image_info)
     grub_arch="$1"
     img_name="$2"
-    out_binary_path="$(abspath "$img_name")"
+    out_binary_path="$(abspath "$out_dir/$img_name")"
     mkdir -p $DBSTCK_TMPDIR/efi/boot/grub
     cd $DBSTCK_TMPDIR/efi
     cat > boot/grub/grub.cfg << EOF
@@ -164,12 +149,29 @@ insmod part_gpt
 insmod lvm
 insmod efi_gop
 insmod efi_uga
-search --set rootfs --label $rootfs_label
-configfile (\$rootfs)/boot/grub/grub.cfg
+search --set efiboot --file /EFI/BOOT/grub-dbstck-$STICK_OS_ID.cfg
+configfile (\$efiboot)/EFI/BOOT/grub-dbstck-$STICK_OS_ID.cfg
 EOF
     grub-mkstandalone \
             --directory="/usr/lib/grub/$grub_arch/" --format="$grub_arch"   \
             --compress="gz" --output="$out_binary_path"            \
             "boot/grub/grub.cfg"
     cd - >/dev/null # return to previous dir
+}
+
+build_grub_uefi()
+{
+    mkdir -p boot/efi/EFI/BOOT/
+    build_uefi_binary_image boot/efi/EFI/BOOT/
+}
+
+configure_grub_uefi()
+{
+    image_type="$1"
+    fs_uuid=$(cat $DBSTCK_TMPDIR/$image_type/rootfs_vol/uuid)
+    grub_dbstck_path="boot/efi/EFI/BOOT/grub-dbstck-$STICK_OS_ID.cfg"
+    cat << EOF > $grub_dbstck_path
+search --set rootfs --fs-uuid $fs_uuid
+configfile (\$rootfs)/boot/grub/grub.cfg
+EOF
 }

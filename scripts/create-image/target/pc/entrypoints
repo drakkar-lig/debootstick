@@ -9,17 +9,6 @@ target_use_lvm() {
 }
 
 # for details about the following functions
-# see 'steps' file
-
-target_preliminary_steps() {
-    preliminary_steps $@
-}
-
-target_final_customization_steps() {
-    final_customization_steps $@
-}
-
-# for details about the following functions
 # see 'formatting' file
 
 target_format_partition() {
@@ -48,24 +37,18 @@ target_install_bootloader() {
     install_bootloader
 }
 
-target_prepare_rootfs() {
-    image_type="$1"
-    chroot_status="$2"
-    if [ "$chroot_status" = "inside" ]
-    then
-        prepare_rootfs
-    fi
-}
-
-target_cleanup_rootfs() {
-    image_type="$1"
-    chroot_status="$2"
-    if [ "$chroot_status" = "inside" ]
-    then
-        cleanup_rootfs
-    fi
-}
-
 target_get_bootloader_install_command() {
     echo grub-install
 }
+
+# for details about the following functions
+# see 'rootfs' file
+
+target_prepare_rootfs() {
+    prepare_rootfs $@
+}
+
+target_cleanup_rootfs() {
+    cleanup_rootfs $@
+}
+

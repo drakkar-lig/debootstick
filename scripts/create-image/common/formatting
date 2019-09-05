@@ -36,41 +36,29 @@ extra_isize
 EOF
 )
 
-make_root_fs()
+format_fat()
 {
-    rootfs_device=$1
-    rootfs_label=$2
+    label="$1"
+    device="$2"
+    label_option=""
+    if [ ! -z "$label" ]
+    then
+        label_option="-n $label"
+    fi
+    quiet mkfs.vfat $label_option "$device"
+}
+
+format_ext4()
+{
+    label="$1"
+    device="$2"
+    label_option=""
+    if [ ! -z "$label" ]
+    then
+        label_option="-L $label"
+    fi
     features="$(echo $EXT4_FEATURES | tr ' ' ',')"
-    mkfs.ext4 -F -q -L $rootfs_label -b 4096 -O "none,$features" -m 2 $rootfs_device
-}
-
-setup_root_filesystem()
-{
-    root_device=$1
-    mountpoint=$2
-    rootfs_label=$3
-
-    # format this lvm volume
-    make_root_fs $root_device $rootfs_label
-
-    # mount it
-    mkdir "$mountpoint"
-    failsafe mount $root_device "$mountpoint"
-}
-
-setup_root_filesystem_on_lvm()
-{
-    part_device=$1
-    mountpoint=$2
-    lvm_vg=$3
-    lv_device=$4
-    rootfs_label=$5
-
-    quiet pvcreate $part_device
-    quiet vgcreate $lvm_vg $part_device
-    quiet lvcreate -n ROOT -l 100%FREE $lvm_vg
-
-    setup_root_filesystem $lv_device $mountpoint $rootfs_label
+    mkfs.ext4 -F -q $label_option -b 4096 -O "none,$features" -m 2 "$device"
 }
 
 get_partition_devices()
@@ -103,6 +91,130 @@ partition_image()
     } | sfdisk "$image_path" >/dev/null
 }
 
+save_vol_uuid()
+{
+    vol_dir="$1"
+    blkid -s UUID -o value $vol_dir/device > $vol_dir/uuid
+}
+
+format_volume()
+{
+    lvm_vg="$1"
+    vol_dir="$2"
+    vol_subtype=$(cat "$vol_dir/subtype")
+
+    label=""
+    if [ -f "$vol_dir/label" ]
+    then
+        label="$(cat "$vol_dir/label")"
+    fi
+
+    case $vol_subtype in
+        efi|fat)
+            format_fat "$label" $vol_dir/device
+            echo vfat > $vol_dir/mounttype
+            save_vol_uuid $vol_dir
+            ;;
+        ext4)
+            format_ext4 "$label" $vol_dir/device
+            echo ext4 > $vol_dir/mounttype
+            save_vol_uuid $vol_dir
+            ;;
+        lvm)
+            # this is our LVM PV partition
+            quiet pvcreate $vol_dir/device
+            quiet vgcreate $lvm_vg $vol_dir/device
+            ;;
+    esac
+}
+
+create_lvm_volume()
+{
+    lvm_vg="$1"
+    vol_dir="$2"
+
+    label=$(cat "$vol_dir/label")
+    applied_size_kb=$(cat "$vol_dir/applied_size_kb")
+
+    if [ "$applied_size_kb" -eq "0" ]
+    then
+        quiet lvcreate -n "$label" -l 100%FREE "$lvm_vg"
+    else
+        quiet lvcreate -n "$label" -L ${applied_size_kb}K "$lvm_vg"
+    fi
+    ln -sf "/dev/$lvm_vg/$label" "$vol_dir/device"
+}
+
+format_volumes()
+{
+    work_dir="$1"
+    layout_dir="$2"
+    lvm_vg="$3"
+    device="$(readlink $work_dir/device)"
+
+    # retrieve the partition devices
+    partition_devices="$(get_partition_devices $device)"
+
+    # format partitions
+    i=0
+    for part_device in $(echo "$partition_devices")
+    do
+        wait_for_device $part_device
+        part_vol="$layout_dir/partitions/$i"
+        ln -sf "$part_device" "$part_vol/device"
+        format_volume $lvm_vg $part_vol
+        i=$((i+1))
+    done
+
+    # create and format lvm volumes
+    for lvm_vol in $(ls -1d "$layout_dir"/lvm_volumes/* | sort -n)
+    do
+        create_lvm_volume $lvm_vg $lvm_vol
+        format_volume $lvm_vg $lvm_vol
+    done
+}
+
+generate_mount_info()
+{
+    layout_dir="$1"
+    for vol_dir in $(ls -d "$layout_dir"/*/*)
+    do
+        echo "$(cat $vol_dir/mountpoint) $vol_dir"
+    done | sort -k 1,1 | while read vol_mountpoint vol_dir
+    do
+        if [ "$vol_mountpoint" = 'none' ]
+        then
+            continue
+        fi
+        echo "$vol_dir" "$(cat $vol_dir/mounttype)" "$(cat $vol_dir/uuid)" "$vol_mountpoint"
+    done
+}
+
+mount_volumes()
+{
+    work_dir="$1"
+    layout_dir="$2"
+    fs_dir="$1/fs"
+
+    generate_mount_info "$layout_dir" | while read vol_dir mounttype uuid vol_mountpoint
+    do
+        if [ "$vol_mountpoint" = "/" ]
+        then
+            fs_mountpoint="$fs_dir"
+        else
+            fs_mountpoint="$fs_dir$vol_mountpoint"
+        fi
+        mkdir -p "$fs_mountpoint"
+        failsafe mount $vol_dir/device "$fs_mountpoint"
+        echo "undo mount $vol_dir/device \"$fs_mountpoint\"" >> $work_dir/release_info
+        # if this is the rootfs volume, save a pointer to it
+        if [ "$vol_mountpoint" = "/" ]
+        then
+            ln -s $vol_dir $work_dir/rootfs_vol
+        fi
+    done
+}
+
 create_formatted_image()
 {
     image_name=$1   # 'draft' or 'final'
@@ -118,6 +230,11 @@ create_formatted_image()
 
     mkdir -p "$work_dir"
 
+    # compute vg name for future use
+    lvm_vg=$(get_vg_name $image_name $stick_os_id)
+    echo $lvm_vg > "$work_dir/vg_name"
+
+    # compute size of partitions and lvm volumes
     compute_applied_sizes $image_name $layout_dir "$target_fs"
 
     # create image file
@@ -131,80 +248,23 @@ create_formatted_image()
     # let the kernel know about this device
     image_device=$(losetup -f)
     failsafe losetup $image_device "$image_file"
+    echo "undo losetup $image_device \"$image_file\"" >> $work_dir/release_info
+    ln -sf "$image_device" "$work_dir/device"
     failsafe kpartx -a $image_device
+    echo "undo kpartx -a $image_device" >> $work_dir/release_info
 
-    # retrieve the partition devices
-    partition_devices="$(get_partition_devices $image_device)"
-
-    # the last one will get the OS filesystem
-    root_partition_num="$(echo "$partition_devices" | wc -l)"
-
-    # format and optionally mount partitions
-    i=1
-    for part_device in $(echo "$partition_devices")
-    do
-        wait_for_device $part_device
-        if [ $i -eq $root_partition_num ]
-        then
-            # root partition
-            mp="$work_dir/rootfs"
-            root_part_device=$part_device
-            rootfs_label="$(get_rootfs_label $stick_os_id)"
-            if $(target_use_lvm)
-            then
-                lvm_vg="$(get_vg_name $image_name $stick_os_id)"
-                lv_device=/dev/$lvm_vg/ROOT
-                setup_root_filesystem_on_lvm $part_device "$mp" \
-                                $lvm_vg $lv_device $rootfs_label
-                mounts_info="$lv_device $mp $mounts_info"
-            else
-                setup_root_filesystem $part_device "$mp" $rootfs_label
-                mounts_info="$part_device $mp $mounts_info"
-            fi
-        else
-            mp="$work_dir/part$i"
-            # other target-specific partitions
-            if target_format_partition $i $part_device
-            then
-                mkdir "$mp" && failsafe mount $part_device "$mp"
-                mounts_info="$part_device $mp $mounts_info"
-            fi
-        fi
-        i=$((i+1))
-    done
-
-    # let the calling code know what we have done
-    eval "$(cat << EOF
-${image_name}_file="$image_file"
-${image_name}_device=$image_device
-${image_name}_rootpart_device="$root_part_device"
-${image_name}_rootfs_mountpoint="$work_dir/rootfs"
-${image_name}_mounts_info="$mounts_info"
-EOF
-    )"
+    # format partitions and lvm volumes, then mount them
+    format_volumes "$work_dir" "$layout_dir" "$lvm_vg"
+    mount_volumes "$work_dir" "$layout_dir"
 }
 
 release_image()
 {
     image_name="$1"     # 'draft' or 'final'
+    work_dir="$DBSTCK_TMPDIR/$image_name"
 
-    # read variables with prefix draft or final
-    eval "$(cat << EOF
-image_file="\${${image_name}_file}"
-image_device=\${${image_name}_device}
-mounts_info=\${${image_name}_mounts_info}
-EOF
-    )"
-
-    # detach things
-    set -- $mounts_info
-    while [ ! -z "$1" ]
-    do
-        undo mount $1 $2
-        shift 2
-    done
-    undo kpartx -a $image_device
-    undo losetup $image_device "$image_file"
+    eval "$(tac $work_dir/release_info)"
+    rm $work_dir/file
 }
 
 estimate_minimal_rootpart_size_kb()

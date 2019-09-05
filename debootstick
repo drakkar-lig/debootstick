@@ -132,7 +132,7 @@ then
     usage_and_exit
 fi
 
-# this directory should contain a system 
+# this directory should contain a system
 # file hierarchy (1st level of checks)
 check_fs_hierarchy "$chroot_in" 1 || exit 1
 
@@ -236,7 +236,7 @@ fi
 
 cd $DBSTCK_TMPDIR
 # execute target-specific preliminary steps, if any
-optional_target_preliminary_steps ${STICK_OS_ID}
+optional_target_preliminary_steps
 
 # step: compute a stick size large enough for our work
 # (i.e. not for the final minimized version)
@@ -252,12 +252,13 @@ create_formatted_image \
         draft \
         "$ORIG_TREE" \
         $STICK_OS_ID
+draft_rootfs_mountpoint="$DBSTCK_TMPDIR/draft/fs"
 echo done
 
 # step: copy original tree to work image and modify it
 echo -n "I: draft image - copying filesystem tree... "
 cd $draft_rootfs_mountpoint
-cp -a "$ORIG_TREE"/* .
+cp -au "$ORIG_TREE"/* .
 echo done
 
 # execute target-specific preparation steps, if any
@@ -266,9 +267,14 @@ optional_target_prepare_rootfs draft outside
 # 2nd level of checks of input file hierarchy
 check_fs_hierarchy "$PWD" 2 || exit 1
 
+echo -n "I: draft image - generating fstab... "
+generate_fstab "$layout_dir"
+echo done
+
 mkdir -p opt/debootstick
 cp -a $DBSTCK_DIR/scripts/live opt/debootstick/live
 cp -a $DBSTCK_DIR/scripts/create-image/chrooted-customization-draft.sh .
+draft_device="$(readlink $DBSTCK_TMPDIR/draft/device)"
 # we will need internet connectivity for package
 # management in the chroot. Ensure we have a valid DNS setup there.
 [ -f etc/resolv.conf ] || touch etc/resolv.conf
@@ -292,37 +298,17 @@ optional_target_cleanup_rootfs draft outside
 # step: finalyse filesystem setup
 finalize_fs $draft_rootfs_mountpoint
 
-# step: compute minimal size of final stick
-echo -n "I: final image - computing minimal image size... "
-cd $DBSTCK_TMPDIR
-final_rootpart_size_kb=$(estimate_minimal_rootpart_size_kb \
-                            $draft_rootfs_mountpoint)
-draft_rootpart_size_kb=$(device_size_kb $draft_rootpart_device)
-# since the draft and final images are formatted the
-# same way (only the size of the root partition differs),
-# (final_stick_size_kb - final_rootpart_size_kb)
-# should be equal to
-# (draft_stick_size_kb - draft_rootpart_size_kb)
-# let's compute final_stick_size_kb accordingly:
-final_stick_size_kb=$((
-        final_rootpart_size_kb +
-        draft_stick_size_kb -
-        draft_rootpart_size_kb
-))
-echo done
-
-# step: copy work version to the final image (with minimal size)
-
-# prepare a final image with minimal size
+# step: prepare a final image with minimal size
 echo -n "I: final image - partitioning and formatting... "
 create_formatted_image \
         final \
         $draft_rootfs_mountpoint \
         ${STICK_OS_ID} \
         $final_image_abspath
+final_rootfs_mountpoint="$DBSTCK_TMPDIR/final/fs"
 echo done
 echo -n "I: final image - copying content from draft image... "
-cp -a $draft_rootfs_mountpoint/* $final_rootfs_mountpoint/
+cp -au $draft_rootfs_mountpoint/* $final_rootfs_mountpoint/
 echo done
 release_image draft     # not needed anymore
 
@@ -337,6 +323,11 @@ EOF
 
 # step: customize final OS
 cd $final_rootfs_mountpoint
+final_device="$(readlink $DBSTCK_TMPDIR/final/device)"
+
+echo -n "I: final image - generating fstab... "
+generate_fstab "$layout_dir"
+echo done
 
 # execute target-specific preparation steps, if any
 optional_target_prepare_rootfs final outside

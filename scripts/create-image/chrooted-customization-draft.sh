@@ -140,10 +140,6 @@ then
     echo "I: draft image - kernel bootargs: $bootargs"
 fi
 
-echo -n "I: draft image - updating fstab... "
-update_fstab $stick_os_id
-echo done
-
 if [ "$config_hostname" != "" ]
 then
     echo -n "I: draft image - setting hostname... "
