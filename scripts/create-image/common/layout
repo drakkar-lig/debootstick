@@ -248,12 +248,12 @@ parse_layout() {
             "")
                 ;;
             "partition")
-                part_num=$(num_dir_entries "$in_layout_dir/partitions")
+                part_num=$(($(num_dir_entries "$in_layout_dir/partitions")+1))
                 part_dir="$in_layout_dir/partitions/$part_num"
                 save_volume_info part "$part_dir" "$inst" $args
                 ;;
             "lvm_volume")
-                vol_num=$(num_dir_entries "$in_layout_dir/lvm_volumes")
+                vol_num=$(($(num_dir_entries "$in_layout_dir/lvm_volumes")+1))
                 vol_dir="$in_layout_dir/lvm_volumes/$vol_num"
                 save_volume_info lvm "$vol_dir" "$inst" $args
                 ;;
@@ -277,16 +277,6 @@ parse_layout() {
     do
         vol_subtype=$(cat $vol/subtype)
         get_fdisk_type $part_table_type $vol_subtype > $vol/fdisk_type
-    done
-
-    # add a flag to last partition and lvm volume
-    for vol_type_dir in partitions lvm_volumes
-    do
-        num_last_vol=$(ls -1 "$in_layout_dir"/$vol_type_dir/ | sort -n | tail -n 1)
-        if [ ! -z "$num_last_vol" ]
-        then
-            touch "$in_layout_dir/$vol_type_dir/$num_last_vol/last"
-        fi
     done
 }
 
@@ -317,69 +307,11 @@ estimate_minimal_vol_size_kb()
     echo $(apply_overheads_percent $data_size_kb $overheads)
 }
 
-fixed_size_requested()
-{
-    vol="$1"
-
-    if [ $(cat "$vol/size" | grep "[GM]$" | wc -l) -eq 1 ]
-    then
-        return 0    # yes
-    else
-        return 1    # no
-    fi
-}
-
-should_apply_fixed_size()
-{
-    mode="$1"
-    vol="$2"
-
-    # check that a fixed size is requested
-    if ! fixed_size_requested "$vol"
-    then
-        return 1    # no
-    fi
-
-    # check if we are in live mode
-    if [ "$mode" = "live" ]
-    then
-        return 0    # yes
-    fi
-
-    # check if volume is a partition and not last one
-    if [ $(cat "$vol/type") = "part" -a ! -f "$vol/last" ]
-    then
-        return 0    # yes
-    fi
-
-    # in other cases, do not apply the requested fixed size
-    return 1        # no
-}
-
 should_extend_up_to_the_end()
 {
-    mode="$1"
-    vol="$2"
-
-    # check that this is last volume or partition
-    if [ ! -f "$vol/last" ]
-    then
-        return 1    # no
-    fi
-
-    # check whether mode is 'live'
-    if [ "$mode" != "live" ]
-    then
-        return 0    # yes
-    fi
-
-    # check that a fixed size is requested
-    if fixed_size_requested "$vol"
-    then
-        return 1    # no
-    else
-        return 0    # yes   # TODO: handle percentages
-    fi
+    vol=$1
+    num_last_vol=$(ls -1 "$vol"/.. | sort -n | tail -n 1)
+    [ $(basename $vol) = $num_last_vol ]
 }
 
 store_computed_size()
@@ -399,13 +331,6 @@ store_computed_size()
     fi
 
     echo $needed_size_kb > $vol/needed_size_kb
-
-    if should_extend_up_to_the_end $mode $vol
-    then
-        echo 0 > $vol/applied_size_kb   # 0 means 'fill available space'
-    else
-        cp $vol/needed_size_kb $vol/applied_size_kb
-    fi
 }
 
 compute_applied_sizes()
@@ -479,12 +404,7 @@ compute_applied_sizes()
         vol_size=$(cat "$vol/size")
         vol_type=$(cat "$vol/type")
         vol_subtype=$(cat "$vol/subtype")
-        fixed_size=0
-        if should_apply_fixed_size $in_mode $vol
-        then
-            # fixed size
-            size_as_kb $vol_size
-        elif [ "$vol_subtype" = "bios" ]
+        if [ "$vol_subtype" = "bios" ]
         then
             # bios boot partition is special, we know which size is recommended
             echo $BIOSBOOT_PARTITION_SIZE_KB
@@ -499,7 +419,51 @@ compute_applied_sizes()
         fi | store_computed_size $in_mode $vol
     done
 
+    # re-sort lvm volumes, smallest needed_size first
+    # (otherwise approximation may cause the last volume to be short on disk space)
+    mkdir "$in_layout_dir"/sorted_lvm_volumes/
+    for vol in $(ls -1d "$in_layout_dir"/lvm_volumes/*)
+    do
+        echo "$(cat $vol/needed_size_kb) $vol"
+    done | sort -k 1,1 | {
+        i=1
+        while read needed_size_kb vol
+        do
+            cp -r $vol "$in_layout_dir"/sorted_lvm_volumes/$i
+            i=$((i+1))
+        done
+    }
+    rm -rf "$in_layout_dir"/lvm_volumes
+    mv "$in_layout_dir"/sorted_lvm_volumes "$in_layout_dir"/lvm_volumes
+
+    # compute applied_size_kb
+    for vol in $(ls -1d "$in_layout_dir"/*/* | sort)
+    do
+        if should_extend_up_to_the_end $vol
+        then
+            echo 0 > $vol/applied_size_kb   # 0 means 'fill available space'
+        else
+            cp $vol/needed_size_kb $vol/applied_size_kb
+        fi
+    done
+
     # compute the overall image size
     cat "$in_layout_dir"/partitions/*/needed_size_kb | \
                     sum_lines > "$in_layout_dir"/needed_size_kb
+}
+
+dump_partition_volumes_info() {
+    in_layout_dir="$1"
+    for vol in $(ls -1d "$in_layout_dir"/partitions/*)
+    do
+        echo "$(basename $vol);$(cat $vol/subtype);$(cat $vol/size)"
+    done
+}
+
+dump_lvm_volumes_info() {
+    in_layout_dir="$1"
+    for vol in $(ls -1d "$in_layout_dir"/lvm_volumes/*)
+    do
+        echo "$(cat $vol/label);$(cat $vol/subtype);$(cat $vol/size)"
+    done
 }

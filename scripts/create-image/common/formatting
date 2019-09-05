@@ -156,7 +156,7 @@ format_volumes()
     partition_devices="$(get_partition_devices $device)"
 
     # format partitions
-    i=0
+    i=1
     for part_device in $(echo "$partition_devices")
     do
         wait_for_device $part_device
