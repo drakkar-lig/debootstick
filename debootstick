@@ -321,6 +321,7 @@ ASK_ROOT_PASSWORD_ON_FIRST_BOOT=$root_password_on_first_boot
 BOOTLOADER_INSTALL=$bootloader_install_command
 PARTITIONS="$(dump_partition_volumes_info "$layout_dir")"
 LVM_VOLUMES="$(dump_lvm_volumes_info "$layout_dir")"
+IMAGE_SIZE_KB="$(cat $layout_dir/needed_size_kb)"
 EOF
 
 # step: customize final OS

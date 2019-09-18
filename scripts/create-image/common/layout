@@ -456,7 +456,7 @@ dump_partition_volumes_info() {
     in_layout_dir="$1"
     for vol in $(ls -1d "$in_layout_dir"/partitions/*)
     do
-        echo "$(basename $vol);$(cat $vol/subtype);$(cat $vol/size)"
+        echo "$(basename $vol);$(cat $vol/subtype);$(cat $vol/mountpoint);$(cat $vol/size)"
     done
 }
 
@@ -464,6 +464,6 @@ dump_lvm_volumes_info() {
     in_layout_dir="$1"
     for vol in $(ls -1d "$in_layout_dir"/lvm_volumes/*)
     do
-        echo "$(cat $vol/label);$(cat $vol/subtype);$(cat $vol/size)"
+        echo "$(cat $vol/label);$(cat $vol/subtype);$(cat $vol/mountpoint);$(cat $vol/size)"
     done
 }

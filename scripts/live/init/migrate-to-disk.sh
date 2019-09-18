@@ -2,11 +2,10 @@
 set -e
 THIS_DIR=$(cd $(dirname $0); pwd)
 . $THIS_DIR/tools.sh
-. /dbstck.conf
 
 clear
 echo "** ---- INSTALLER MODE -------------------"
-if ! $USE_LVM
+if ! root_on_lvm
 then
     echo "** ERROR: Root filesystem is not built on LVM!"
     echo "** ERROR: Installer mode seems broken on this target."
@@ -22,18 +21,7 @@ then
     exit 1
 fi
 
-LVM_VG=$(get_vg_name $STICK_OS_ID)
-ORIGIN=$(get_booted_device_from_vg $LVM_VG)
-pv_part_num=$(get_pv_part_num $ORIGIN)
-next_part_num=$(get_next_part_num $ORIGIN)
-
-if [ "$next_part_num" -ne "$(($pv_part_num+1))" ]
-then
-    echo "** ERROR: LVM physical volume is not the last partition!"
-    echo "** ERROR: Installer mode seems broken on this target."
-    echo "Aborted!"
-    exit 1
-fi
+ORIGIN=$(get_booted_device)
 
 origin_capacity=$(get_device_capacity $ORIGIN)
 larger_devices="$(get_higher_capacity_devices $origin_capacity)"
@@ -70,16 +58,8 @@ echo "** WARNING: Press any key NOW to cancel this process."
 read -t 10 -n 1 && { echo "Aborted!"; exit 1; }
 echo "** Going on."
 
-enforce_lvm_cmd() {
-    udevadm settle; sync; sync
-    while true; do
-        # handle rare failures
-        "$@" 2>/dev/null && break || sleep 1
-    done
-}
-
 {
-    echo MSG making sure ${TARGET} is not used...
+    echo MSG making sure ${target_label} is not used...
     pvs --no-headings -o pv_name | while read pv_name
     do
         [ "$(part_to_disk $pv_name)" == "$TARGET" ] || continue
@@ -93,48 +73,14 @@ enforce_lvm_cmd() {
 
     echo MSG copying the partition scheme...
     sgdisk -Z ${TARGET}
-    sgdisk -R ${TARGET} $ORIGIN
+    sgdisk -R ${TARGET} ${ORIGIN}
     sgdisk -G ${TARGET}
 
-    echo MSG extending the last partition...
-    sgdisk -d $pv_part_num -n $pv_part_num:0:0 \
-                -t $pv_part_num:8e00 ${TARGET}
-
-    echo MSG letting the kernel update partition info...
-    partx -d ${TARGET}
-    partx -a ${TARGET}
-
-    echo MSG copy partitions that are not LVM PVs...
-    for n in $(get_part_nums_not_pv $ORIGIN)
-    do
-        part_origin=$(get_part_device ${ORIGIN} $n)
-        part_target=$(get_part_device ${TARGET} $n)
-        dd_min_verbose if=$part_origin of=$part_target bs=10M
-    done
-
-    echo MSG moving the lvm volume content on ${TARGET}...
-    part_origin=$(get_part_device ${ORIGIN} $pv_part_num)
-    part_target=$(get_part_device ${TARGET} $pv_part_num)
-    enforce_lvm_cmd pvcreate -ff -y $part_target
-    enforce_lvm_cmd vgextend $LVM_VG $part_target
-    pvchange -x n $part_origin
-    pvmove -i 1 $part_origin | while read pv action percent
-    do
-        echo REFRESHING_MSG "$percent"
-    done
-    enforce_lvm_cmd vgreduce $LVM_VG $part_origin
-    echo REFRESHING_DONE
-
-    echo MSG filling the space available...
-    lvextend -l+100%FREE /dev/$LVM_VG/ROOT
-    resize2fs /dev/$LVM_VG/ROOT
+    # migrate partitions and LVM volumes
+    process_volumes "${ORIGIN}" "${TARGET}" "migrate"
 
     echo MSG installing the bootloader...
     $BOOTLOADER_INSTALL ${TARGET}
-
-    echo MSG making sure ${ORIGIN} is not used anymore...
-    enforce_lvm_cmd pvremove -ff -y $part_origin
-    enforce_lvm_cmd partx -d ${ORIGIN}
 
     echo RETURN 0
 } | filter_quiet
