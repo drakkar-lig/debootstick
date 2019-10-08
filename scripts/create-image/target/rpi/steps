@@ -1,9 +1,0 @@
-# vim: filetype=sh
-
-final_customization_steps()
-{
-    echo -n "I: final image - populating the boot partition... "
-    final_bootpart_mountpoint=$DBSTCK_TMPDIR/final/part1/
-    mv $DBSTCK_TMPDIR/boot_files/* $final_bootpart_mountpoint
-    echo done
-}

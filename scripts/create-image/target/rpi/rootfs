@@ -11,14 +11,6 @@ prepare_rootfs()
 
 cleanup_rootfs()
 {
-    if [ "$1" = "draft" -a "$2" = "outside" ]
-    then
-        echo "FIX THIS -- scripts/create-image/target/rpi/rootfs"
-        # Boot files will be on a different partition.
-        # Move them out now because they should not be
-        # counted for the minimal rootfs size estimation.
-        #mv boot $DBSTCK_TMPDIR/boot_files
-    fi
     if [ "$1" = "final" -a "$2" = "outside" ]
     then
         cleanup_rootfs_for_emulation

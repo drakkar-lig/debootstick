@@ -2,5 +2,5 @@
 dos
 
 # ordered list of partitions (with mountpoint, type, size)
-partition /boot  fat     50M
+partition /boot  fat     auto
 partition /      ext4    max

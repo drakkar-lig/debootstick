@@ -15,10 +15,6 @@ target_preliminary_steps() {
     echo "I: Some operations will require CPU EMULATION - Please be patient!"
 }
 
-target_final_customization_steps() {
-    final_customization_steps
-}
-
 # for details about the following functions
 # see 'formatting' file
 
