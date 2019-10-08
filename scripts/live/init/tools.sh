@@ -204,7 +204,16 @@ filter_quiet()
                 echo $line
                 ;;
             "REFRESHING_MSG")
-                echo -en "$line\r"
+                case "$line" in
+                    *%) # this is a percentage
+                        percent_float=$(echo $line | sed 's/.$//')
+                        percent_int=$(LC_ALL=C printf "%.0f" $percent_float)
+                        show_progress_bar $percent_int 100
+                        ;;
+                    *)
+                        echo -en "$line\r"
+                        ;;
+                esac
                 ;;
             "REFRESHING_DONE")
                 echo
