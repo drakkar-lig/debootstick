@@ -65,10 +65,10 @@ echo "** Going on."
         [ "$(part_to_disk $pv_name)" == "$TARGET" ] || continue
         vg=$(vgs --select "pv_name = $pv_name" --noheadings | awk '{print $1}')
         if [ -n "$vg" ]; then
-            enforce_lvm_cmd vgchange -an "$vg"
-            enforce_lvm_cmd vgremove -ff -y "$vg"
+            enforce_disk_cmd vgchange -an "$vg"
+            enforce_disk_cmd vgremove -ff -y "$vg"
         fi
-        enforce_lvm_cmd pvremove -ff -y $pv_name
+        enforce_disk_cmd pvremove -ff -y $pv_name
     done
 
     echo MSG copying the partition scheme...

@@ -410,7 +410,7 @@ EOF
     partx -u ${disk}  # notify the kernel
 }
 
-enforce_lvm_cmd() {
+enforce_disk_cmd() {
     udevadm settle; sync; sync
     i=0
     while [ $i -lt 10 ]; do
@@ -437,10 +437,10 @@ resize_lvm_volume()
         then
             echo "MSG Not resized (no more free space)."
         else
-            enforce_lvm_cmd lvextend -l+100%FREE "$device"
+            enforce_disk_cmd lvextend -l+100%FREE "$device"
         fi
     else
-        enforce_lvm_cmd lvextend -L${applied_size_kb}K "$device"
+        enforce_disk_cmd lvextend -L${applied_size_kb}K "$device"
     fi
 }
 
@@ -567,7 +567,7 @@ process_volumes() {
                             ;;
                         "lvm")  # physical volume on a partition
                             echo MSG extending lvm physical volume on $dev_name...
-                            enforce_lvm_cmd pvresize "$voldevice"
+                            enforce_disk_cmd pvresize "$voldevice"
                             ;;
                     esac
                     ;;
@@ -577,18 +577,18 @@ process_volumes() {
                     ;;
                 init_lvm_pv)
                     echo MSG initializing LVM physical volume on $dev_name...
-                    enforce_lvm_cmd pvcreate -ff -y "$voldevice"
+                    enforce_disk_cmd pvcreate -ff -y "$voldevice"
                     ;;
                 migrate_lvm)
                     echo MSG moving the lvm volume content on $target_device...
-                    enforce_lvm_cmd vgextend $VG "$voldevice"
-                    enforce_lvm_cmd pvchange -x n "$origin_voldevice"
-                    enforce_lvm_cmd pvmove -i 1 "$origin_voldevice" | while read pv action percent
+                    enforce_disk_cmd vgextend $VG "$voldevice"
+                    enforce_disk_cmd pvchange -x n "$origin_voldevice"
+                    enforce_disk_cmd pvmove -i 1 "$origin_voldevice" | while read pv action percent
                     do
                         echo REFRESHING_MSG "$percent"
                     done
-                    enforce_lvm_cmd vgreduce $VG "$origin_voldevice"
-                    enforce_lvm_cmd pvremove -ff -y "$origin_voldevice"
+                    enforce_disk_cmd vgreduce $VG "$origin_voldevice"
+                    enforce_disk_cmd pvremove -ff -y "$origin_voldevice"
                     echo REFRESHING_DONE
                     ;;
                 copy_partition)
@@ -609,7 +609,7 @@ process_volumes() {
                     if [ "$mountpoint" != "none" ]
                     then
                         echo "MSG checking filesystem on $voldevice..."
-                        enforce_lvm_cmd fsck "$voldevice"
+                        enforce_disk_cmd fsck "$voldevice"
                     fi
                     ;;
                 *)
@@ -622,11 +622,11 @@ process_volumes() {
     if [ "$operation" = "migrate" ]
     then
         echo MSG making sure ${origin_device} is not used anymore...
-        enforce_lvm_cmd partx -d ${origin_device} || true
+        enforce_disk_cmd partx -d ${origin_device} || true
 
         echo "MSG ensuring all filesystems are (re-)mounted..."
-        enforce_lvm_cmd partx -u ${target_device} && \
-        enforce_lvm_cmd mount -a || echo "MSG this failed, but everything should be fine on next reboot."
+        enforce_disk_cmd partx -u ${target_device} && \
+        enforce_disk_cmd mount -a || echo "MSG this failed, but everything should be fine on next reboot."
     fi
 }
 
