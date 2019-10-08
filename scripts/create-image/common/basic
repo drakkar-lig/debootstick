@@ -79,7 +79,8 @@ check_integer() {
 }
 
 sum_lines() {
-    echo $(($(paste -sd+ -)))
+    exp="$(paste -sd+ -)"
+    [ "$exp" = "" ] && echo 0 || echo "$(($exp))"
 }
 
 # grep returns non-zero if no line is found.

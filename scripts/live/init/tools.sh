@@ -336,7 +336,8 @@ size_as_kb()
 }
 
 sum_lines() {
-    echo $(($(paste -sd+ -)))
+    exp="$(paste -sd+ -)"
+    [ "$exp" = "" ] && echo 0 || echo "$(($exp))"
 }
 
 device_size_kb() {
