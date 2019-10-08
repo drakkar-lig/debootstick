@@ -609,7 +609,7 @@ process_volumes() {
                     if [ "$mountpoint" != "none" ]
                     then
                         echo "MSG checking filesystem on $voldevice..."
-                        fsck "$voldevice"
+                        enforce_lvm_cmd fsck "$voldevice"
                     fi
                     ;;
                 *)
@@ -626,7 +626,7 @@ process_volumes() {
 
         echo "MSG ensuring all filesystems are (re-)mounted..."
         enforce_lvm_cmd partx -u ${target_device} && \
-        mount -a || echo "MSG this failed, but everything should be fine on next reboot."
+        enforce_lvm_cmd mount -a || echo "MSG this failed, but everything should be fine on next reboot."
     fi
 }
 
