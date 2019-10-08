@@ -264,10 +264,13 @@ dump_partition_info()
 
 dump_lvm_info()
 {
-    echo "$LVM_VOLUMES" | tr ';' ' ' | while read label subtype mountpoint size
-    do
-        echo "lvm /dev/$VG/$label $subtype $mountpoint $size"
-    done
+    if [ "$LVM_VOLUMES" != "" ]
+    then
+        echo "$LVM_VOLUMES" | tr ';' ' ' | while read label subtype mountpoint size
+        do
+            echo "lvm /dev/$VG/$label $subtype $mountpoint $size"
+        done
+    fi
 }
 
 dump_volumes_info()

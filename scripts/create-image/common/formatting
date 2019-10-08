@@ -167,8 +167,9 @@ format_volumes()
     done
 
     # create and format lvm volumes
-    for lvm_vol in $(ls -1d "$layout_dir"/lvm_volumes/* | sort -n)
+    for lvm_vol_id in $(ls -1 "$layout_dir"/lvm_volumes/ | sort -n)
     do
+        lvm_vol="$layout_dir"/lvm_volumes/$lvm_vol_id
         create_lvm_volume $lvm_vg $lvm_vol
         format_volume $lvm_vg $lvm_vol
     done

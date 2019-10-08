@@ -142,7 +142,12 @@ get_vol_attr_files() {
 count_attr_matches() {
     cd "$1"
     files="$(get_vol_attr_files $2)"
-    grep $3 $files | wc -l
+    if [ "$files" = "" ]
+    then
+        echo 0
+    else
+        grep $3 $files | wc -l
+    fi
     cd - >/dev/null
 }
 
@@ -240,7 +245,7 @@ parse_layout() {
     in_layout_dir="$1"
     in_layout_file="$2"
 
-    mkdir -p "$in_layout_dir"
+    mkdir -p "$in_layout_dir/partitions" "$in_layout_dir/lvm_volumes"
 
     sed -e 's/#.*$//' $in_layout_file | while read inst args
     do
@@ -422,8 +427,9 @@ compute_applied_sizes()
     # re-sort lvm volumes, smallest needed_size first
     # (otherwise approximation may cause the last volume to be short on disk space)
     mkdir "$in_layout_dir"/sorted_lvm_volumes/
-    for vol in $(ls -1d "$in_layout_dir"/lvm_volumes/*)
+    for vol_id in $(ls -1 "$in_layout_dir"/lvm_volumes/)
     do
+        vol="$in_layout_dir"/lvm_volumes/$vol_id
         echo "$(cat $vol/needed_size_kb) $vol"
     done | sort -k 1,1 | {
         i=1
@@ -462,8 +468,9 @@ dump_partition_volumes_info() {
 
 dump_lvm_volumes_info() {
     in_layout_dir="$1"
-    for vol in $(ls -1d "$in_layout_dir"/lvm_volumes/*)
+    for vol_id in $(ls -1 "$in_layout_dir"/lvm_volumes/)
     do
+        vol="$in_layout_dir"/lvm_volumes/$vol_id
         echo "$(cat $vol/label);$(cat $vol/subtype);$(cat $vol/mountpoint);$(cat $vol/size)"
     done
 }
