@@ -319,6 +319,25 @@ should_extend_up_to_the_end()
     [ $(basename $vol) = $num_last_vol ]
 }
 
+is_fixed_size_partition()
+{
+    vol="$1"
+    vol_type=$(cat "$vol/type")
+    if [ "$vol_type" = "lvm" ]
+    then
+        return 1    # false
+    fi
+    vol_size=$(cat "$vol/size")
+    case "$vol_size" in
+        *[GM])
+            return 0    # true
+            ;;
+        *)
+            return 1    # false
+            ;;
+    esac
+}
+
 store_computed_size()
 {
     mode="$1"
@@ -448,14 +467,29 @@ compute_applied_sizes()
         if should_extend_up_to_the_end $vol
         then
             echo 0 > $vol/applied_size_kb   # 0 means 'fill available space'
+        elif is_fixed_size_partition $vol
+        then
+            size_as_kb $(cat $vol/size) > $vol/applied_size_kb
+            # if requested size if too low, set it to minimum needed size
+            if [ $(cat $vol/applied_size_kb) -lt $(cat $vol/needed_size_kb) ]
+            then
+                cp $vol/needed_size_kb $vol/applied_size_kb
+            fi
         else
             cp $vol/needed_size_kb $vol/applied_size_kb
         fi
     done
 
     # compute the overall image size
-    cat "$in_layout_dir"/partitions/*/needed_size_kb | \
-                    sum_lines > "$in_layout_dir"/needed_size_kb
+    for vol in $(ls -1d "$in_layout_dir"/partitions/*)
+    do
+        if is_fixed_size_partition $vol
+        then
+            cat $vol/applied_size_kb
+        else
+            cat $vol/needed_size_kb
+        fi
+    done | sum_lines > "$in_layout_dir"/needed_size_kb
 }
 
 dump_partition_volumes_info() {
