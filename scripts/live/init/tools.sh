@@ -279,6 +279,18 @@ dump_volumes_info()
     dump_lvm_info
 }
 
+lvm_partition_size_kb()
+{
+    dump_partition_info "$1" | while read vol_type device subtype mountpoint size
+    do
+        if [ "$subtype" = "lvm" ]
+        then
+            device_size_kb "$device"
+            break   # done
+        fi
+    done
+}
+
 size_as_kb()
 {
     echo $(($(echo $1 | sed -e "s/M/*1024/" -e "s/G/*1024*1024/")))
@@ -341,17 +353,20 @@ analysis_step1() {
 
 compute_applied_sizes()
 {
-    disk_device="$1"
-    disk_size_kb="$(device_size_kb "$disk_device")"
+    volumes_type="$1"
+    volumes_info="$2"
+    disk_size_kb="$3"
+    total_size_kb="$4"
 
+    # compute applied size of volumes
     nice_factor=$COMPUTE_PRECISION  # init nice_factor at ratio 1.0
 
     while true
     do
-        volume_analysis_step1="$(dump_volumes_info "$disk_device" | analysis_step1 $nice_factor)"
+        volume_analysis_step1="$(echo "$volumes_info" | analysis_step1 $nice_factor)"
 
-        static_size_kb=$(echo "$volume_analysis_step1" | grep -v " percent " | grep -v "^part.*lvm" | awk '{print $NF}' | sum_lines)
-        space_size_kb=$((disk_size_kb-static_size_kb))
+        static_size_kb=$(echo "$volume_analysis_step1" | grep -v " percent " | awk '{print $NF}' | sum_lines)
+        space_size_kb=$((total_size_kb-static_size_kb))
         sum_percents=$(echo "$volume_analysis_step1" | grep " percent " | awk '{print $3}' | sum_lines)
 
         if [ $((sum_percents*disk_size_kb)) -gt $((space_size_kb*100)) ]
@@ -362,8 +377,13 @@ compute_applied_sizes()
             # thus the following percentage of disk size: (percent/sum_percents*space_size_kb/disk_size_kb).
             # thus, we apply each percent requested a 'nice-factor' of (space_size_kb/(sum_percents*disk_size_kb)).
             nice_factor=$((space_size_kb*100*COMPUTE_PRECISION/(sum_percents*disk_size_kb)))
-            echo "MSG Note: requested volume sizes and percentages are too high regarding the size of this disk." >&2
-            echo "MSG Note: debootstick will adapt them." >&2
+            if [ "$volumes_type" = "partition" ]
+            then
+                echo "Note: requested partition sizes and percentages are too high regarding the size of this disk." >&2
+            else
+                echo "Note: requested lvm volume sizes and percentages are too high regarding the size of the lvm partition." >&2
+            fi
+            echo "Note: debootstick will adapt them." >&2
         else
             break   # Ok
         fi
@@ -542,12 +562,50 @@ process_volumes() {
     target_device="$2"
     operation="$3"
 
-    echo MSG gathering resize data...
-    format_info="$(compute_applied_sizes "$target_device")"
+    if [ "$LVM_VOLUMES" != "" ]
+    then
+        orig_lvm_part_size_kb="$(lvm_partition_size_kb "$origin_device")"
+    fi
 
-    # we process partitions before lvm volumes (primary sort key),
-    # and lines with "applied_size=max" last (secondary sort key)
-    echo "$format_info" | sort -k 1,1r -k 5,5 | \
+    echo MSG gathering partition resize data...
+    disk_size_kb="$(device_size_kb "$target_device")"
+    volumes_info="$(dump_partition_info "$target_device")"
+    partitions_format_info="$(compute_applied_sizes partition "$volumes_info" "$disk_size_kb" "$disk_size_kb")"
+    process_part_of_volumes "$origin_device" "$target_device" "$operation" "$partitions_format_info"
+
+    if [ "$LVM_VOLUMES" != "" ]
+    then
+        echo MSG gathering lvm volume resize data...
+        lvm_part_size_kb="$(lvm_partition_size_kb "$target_device")"
+        if [ "$((100*lvm_part_size_kb))" -lt $((105*orig_lvm_part_size_kb)) ]
+        then
+            echo "MSG Note: debootstick will not try to resize lvm volumes since lvm partition was not resized (or not significantly resized)."
+        else
+            volumes_info="$(dump_lvm_info)"
+            lvm_format_info="$(compute_applied_sizes lvm_volume "$volumes_info" "$disk_size_kb" "$lvm_part_size_kb")"
+            process_part_of_volumes "$origin_device" "$target_device" "$operation" "$lvm_format_info"
+        fi
+    fi
+
+    if [ "$operation" = "migrate" ]
+    then
+        echo MSG making sure ${origin_device} is not used anymore...
+        enforce_disk_cmd partx -d ${origin_device} || true
+
+        echo "MSG ensuring all filesystems are (re-)mounted..."
+        enforce_disk_cmd partx -u ${target_device} && \
+        enforce_disk_cmd mount -a || echo "MSG this failed, but everything should be fine on next reboot."
+    fi
+}
+
+process_part_of_volumes() {
+    origin_device="$1"
+    target_device="$2"
+    operation="$3"
+    format_info="$4"
+
+    # we process lines with "applied_size=max" last (sort key)
+    echo "$format_info" | sort -k 5,5 | \
     while read voltype voldevice subtype mountpoint applied_size
     do
         dev_name=$(device_name $voltype $voldevice)
@@ -621,15 +679,5 @@ process_volumes() {
             esac
         done
     done
-
-    if [ "$operation" = "migrate" ]
-    then
-        echo MSG making sure ${origin_device} is not used anymore...
-        enforce_disk_cmd partx -d ${origin_device} || true
-
-        echo "MSG ensuring all filesystems are (re-)mounted..."
-        enforce_disk_cmd partx -u ${target_device} && \
-        enforce_disk_cmd mount -a || echo "MSG this failed, but everything should be fine on next reboot."
-    fi
 }
 
