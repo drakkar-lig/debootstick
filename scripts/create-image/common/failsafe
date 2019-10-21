@@ -29,9 +29,17 @@ undo_all()
 
 on_sigint()
 {
-    trap - INT EXIT
+    trap - INT EXIT USR1
     on_exit --from-signal $*
-    kill -INT $$
+    exit 1
+}
+
+on_sigusr1()
+{
+    trap - INT EXIT USR1
+    # exiting because of wrong user input
+    on_exit $*
+    exit 1
 }
 
 on_exit()
@@ -53,35 +61,39 @@ on_exit()
     fi
     cleanup_function=$1
 
-    warn_unexpected_issue=0
+    # if unexpected, inform user
     if [ $toplevel -eq 1 ]
     then
-        if [ $fromsignal -eq 1 -o $res -gt 0 ]
+        if [ $fromsignal -eq 1 ]
         then
-            warn_unexpected_issue=1
+            echo
+            echo "Interrupted."
+        fi
+        if [ $res -gt 0 ]
+        then
+            echo
+            echo "E: an error occured." >&2
+            echo "E: did you try 'debootstick --help-os-support'?" >&2
         fi
     fi
 
-    # undo operations (remove artefacts)
-    if [ $warn_unexpected_issue -eq 1 ]
+    if [ -s $FAILSAFE_COMMANDS ]    # if not empty
     then
-        echo
-        if [ $fromsignal -eq 1 ]
-        then    # signal
-            echo "Interrupted."
-        else    # error
-            echo "E: an error occured."
-            echo "E: did you try 'debootstick --help-os-support'?"
+        # inform user
+        if [ $toplevel -eq 1 ]
+        then
+            echo -n "I: restoring a clean state... "
         fi
-        echo "running a shell before restoring"
-        bash
-        echo -n "I: restoring a clean state... "
+
+        # undo operations (remove artefacts)
         undo_all
         rm $FAILSAFE_COMMANDS
-        echo "done"
-    else
-        undo_all
-        rm $FAILSAFE_COMMANDS
+
+        # inform user
+        if [ $toplevel -eq 1 ]
+        then
+            echo "done"
+        fi
     fi
 
     # call an additional cleanup function
@@ -101,6 +113,7 @@ start_failsafe_mode()
     # clean remaining artefacts before exitting
     trap "on_exit $*" EXIT
     trap "on_sigint $*" INT
+    trap "on_sigusr1 $*" USR1
 
     # allow with constructs (see f_with function)
     alias with="while f_with"
@@ -113,6 +126,11 @@ start_failsafe_mode()
     # busybox sh does, and has no such configuration
     # option (thus the error ignoring construct)
     shopt -s expand_aliases 2>/dev/null || true
+}
+
+exit_wrong_user_input()
+{
+    kill -USR1 $$
 }
 
 undo_mount_with_prefix()

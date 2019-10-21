@@ -59,7 +59,7 @@ get_fdisk_type()
 layout_error() {
     echo >&2
     echo "E: invalid disk layout -- $1" >&2
-    return 1
+    exit_wrong_user_input
 }
 
 save_volume_info() {
