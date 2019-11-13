@@ -16,13 +16,6 @@ target_preliminary_steps() {
 }
 
 # for details about the following functions
-# see 'formatting' file
-
-target_format_partition() {
-    format_partition $@
-}
-
-# for details about the following functions
 # see 'packages' file
 
 target_kernel_default_package() {
