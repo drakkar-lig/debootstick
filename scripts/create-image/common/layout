@@ -1,22 +1,22 @@
 # vim: filetype=sh
 
-MIN_VOLUME_DATA_SIZE_KB=$((10*1024))
-EXT4_OVERHEAD=18
-FAT_OVERHEAD=10
-LVM_OVERHEAD_PERCENT=4
-BIOSBOOT_PARTITION_SIZE_KB=1024
-DRAFT_VOLUME_SIZE_ADDUP_KB=$((4*1024*1024))
+EMPTY_VOLUME_DATA_SIZE_MB=10
+LVM_PART_OVERHEAD_MB=4      # PV metadata size
+DISK_OVERHEAD_MB=1          # offset of 1st partition
+BIOSBOOT_PARTITION_SIZE_MB=1
+DRAFT_VOLUME_SIZE_ADDUP_MB=$((4*1024))
 
-get_overhead() {
-    case "$1" in
+apply_overhead() {
+    size_mb=$1
+    vol_subtype=$2
+    case "$vol_subtype" in
         ext4)
-            echo $EXT4_OVERHEAD
+            # we use a block size of 4K (cf. file 'formatting'), so journal is at least 4M (cf. man mkfs.ext4)
+            # this makes an important overhead on small filesystems.
+            apply_overhead_percent $((size_mb+7)) 12
             ;;
-        fat)
-            echo $FAT_OVERHEAD
-            ;;
-        efi)
-            echo $FAT_OVERHEAD
+        fat|efi)
+            apply_overhead_percent $((size_mb+3)) 12
             ;;
     esac
 }
@@ -285,7 +285,7 @@ parse_layout() {
     done
 }
 
-estimate_minimal_vol_size_kb()
+estimate_minimal_vol_size_mb()
 {
     in_vol="$1"
     in_target_fs="$2"
@@ -296,20 +296,12 @@ estimate_minimal_vol_size_kb()
 
     if [ -d "$target_fs_path" ]
     then
-        data_size_kb=$(estimated_size_kb "$target_fs_path")
+        data_size_mb=$(estimated_size_mb "$target_fs_path")
     else
-        data_size_kb=0
+        data_size_mb=$EMPTY_VOLUME_DATA_SIZE_MB
     fi
 
-    min_kb=$MIN_VOLUME_DATA_SIZE_KB
-    data_size_kb=$((data_size_kb > min_kb ? data_size_kb : min_kb))
-
-    overheads=$(get_overhead $vol_subtype)
-    if ! volume_is_partition "$in_vol"
-    then
-        overheads="$overheads $LVM_OVERHEAD_PERCENT"
-    fi
-    echo $(apply_overheads_percent $data_size_kb $overheads)
+    echo $(apply_overhead $data_size_mb $vol_subtype)
 }
 
 should_extend_up_to_the_end()
@@ -343,7 +335,7 @@ store_computed_size()
     mode="$1"
     vol="$2"
 
-    read needed_size_kb
+    read needed_size_mb
 
     # in the case of the 'draft' image, we should apply a big margin,
     # except for the partition with subtype "lvm".
@@ -351,10 +343,10 @@ store_computed_size()
     # of lvm volumes, and all of them already include a margin.)
     if [ "$mode" = "draft" -a $(cat "$vol"/subtype) != "lvm" ]
     then
-        needed_size_kb=$((needed_size_kb + DRAFT_VOLUME_SIZE_ADDUP_KB))
+        needed_size_mb=$((needed_size_mb + DRAFT_VOLUME_SIZE_ADDUP_MB))
     fi
 
-    echo $needed_size_kb > $vol/needed_size_kb
+    echo $needed_size_mb > $vol/needed_size_mb
 }
 
 compute_applied_sizes()
@@ -387,33 +379,33 @@ compute_applied_sizes()
             target_fs_path="$in_target_fs/$vol_mountpoint"
             if [ -d "$target_fs_path" ]
             then
-                data_size_kb=$(estimated_size_kb "$target_fs_path")
+                data_size_mb=$(estimated_size_mb "$target_fs_path")
             else
-                data_size_kb=0
+                data_size_mb=0
             fi
-            echo "$vol_mountpoint" "$data_size_kb" "$vol"
+            echo "$vol_mountpoint" "$data_size_mb" "$vol"
         fi
-    done | sort -k 1,1 | tac | while read vol_mountpoint data_size_kb vol
+    done | sort -k 1,1 | tac | while read vol_mountpoint data_size_mb vol
     do
         mp=$vol_mountpoint
         mkdir -p "$data_size_tree/$mp"
-        if [ -f "$data_size_tree/$mp/.submounts_data_size_kb" ]
+        if [ -f "$data_size_tree/$mp/.submounts_data_size_mb" ]
         then
-            submounts_data_size_kb=$(cat $data_size_tree/$mp/.submounts_data_size_kb)
-            data_size_kb=$((data_size_kb-submounts_data_size_kb))
+            submounts_data_size_mb=$(cat $data_size_tree/$mp/.submounts_data_size_mb)
+            data_size_mb=$((data_size_mb-submounts_data_size_mb))
         fi
-        echo $data_size_kb > $vol/data_size_kb
+        echo $data_size_mb > $vol/data_size_mb
         while [ "$mp" != "/" ]
         do
             mp=$(dirname $mp)
-            if [ -f "$data_size_tree/$mp/.submounts_data_size_kb" ]
+            if [ -f "$data_size_tree/$mp/.submounts_data_size_mb" ]
             then
-                submounts_data_size_kb=$(cat $data_size_tree/$mp/.submounts_data_size_kb)
+                submounts_data_size_mb=$(cat $data_size_tree/$mp/.submounts_data_size_mb)
             else
-                submounts_data_size_kb=0
+                submounts_data_size_mb=0
             fi
-            echo $((data_size_kb+submounts_data_size_kb)) > \
-                        "$data_size_tree/$mp/.submounts_data_size_kb"
+            echo $((data_size_mb+submounts_data_size_mb)) > \
+                        "$data_size_tree/$mp/.submounts_data_size_mb"
         done
     done
     rm -rf $data_size_tree
@@ -431,15 +423,16 @@ compute_applied_sizes()
         if [ "$vol_subtype" = "bios" ]
         then
             # bios boot partition is special, we know which size is recommended
-            echo $BIOSBOOT_PARTITION_SIZE_KB
+            echo $BIOSBOOT_PARTITION_SIZE_MB
         elif [ "$vol_subtype" = "lvm" ]
         then
-            # lvm-type partition => sum the size of all lvm volumes
-            cat "$in_layout_dir"/lvm_volumes/*/needed_size_kb | \
-                    sum_lines
+            # lvm-type partition => sum the size of all lvm volumes, add lvm metadata size
+            {   cat "$in_layout_dir"/lvm_volumes/*/needed_size_mb
+                echo $LVM_PART_OVERHEAD_MB
+            } | sum_lines
         else
             # variable size
-            estimate_minimal_vol_size_kb $vol $in_target_fs
+            estimate_minimal_vol_size_mb $vol $in_target_fs
         fi | store_computed_size $in_mode $vol
     done
 
@@ -449,10 +442,10 @@ compute_applied_sizes()
     for vol_id in $(ls -1 "$in_layout_dir"/lvm_volumes/)
     do
         vol="$in_layout_dir"/lvm_volumes/$vol_id
-        echo "$(cat $vol/needed_size_kb) $vol"
+        echo "$(cat $vol/needed_size_mb) $vol"
     done | sort -k 1,1 | {
         i=1
-        while read needed_size_kb vol
+        while read needed_size_mb vol
         do
             cp -r $vol "$in_layout_dir"/sorted_lvm_volumes/$i
             i=$((i+1))
@@ -461,35 +454,38 @@ compute_applied_sizes()
     rm -rf "$in_layout_dir"/lvm_volumes
     mv "$in_layout_dir"/sorted_lvm_volumes "$in_layout_dir"/lvm_volumes
 
-    # compute applied_size_kb
+    # compute applied_size_mb
     for vol in $(ls -1d "$in_layout_dir"/*/* | sort)
     do
         if should_extend_up_to_the_end $vol
         then
-            echo 0 > $vol/applied_size_kb   # 0 means 'fill available space'
+            echo 0 > $vol/applied_size_mb   # 0 means 'fill available space'
         elif is_fixed_size_partition $vol
         then
-            size_as_kb $(cat $vol/size) > $vol/applied_size_kb
+            size_as_mb $(cat $vol/size) > $vol/applied_size_mb
             # if requested size if too low, set it to minimum needed size
-            if [ $(cat $vol/applied_size_kb) -lt $(cat $vol/needed_size_kb) ]
+            if [ $(cat $vol/applied_size_mb) -lt $(cat $vol/needed_size_mb) ]
             then
-                cp $vol/needed_size_kb $vol/applied_size_kb
+                cp $vol/needed_size_mb $vol/applied_size_mb
             fi
         else
-            cp $vol/needed_size_kb $vol/applied_size_kb
+            cp $vol/needed_size_mb $vol/applied_size_mb
         fi
     done
 
     # compute the overall image size
-    for vol in $(ls -1d "$in_layout_dir"/partitions/*)
-    do
-        if is_fixed_size_partition $vol
-        then
-            cat $vol/applied_size_kb
-        else
-            cat $vol/needed_size_kb
-        fi
-    done | sum_lines > "$in_layout_dir"/needed_size_kb
+    {
+        for vol in $(ls -1d "$in_layout_dir"/partitions/*)
+        do
+            if is_fixed_size_partition $vol
+            then
+                cat $vol/applied_size_mb
+            else
+                cat $vol/needed_size_mb
+            fi
+        done
+        echo $DISK_OVERHEAD_MB
+    } | sum_lines > "$in_layout_dir"/needed_size_mb
 }
 
 dump_partition_volumes_info() {

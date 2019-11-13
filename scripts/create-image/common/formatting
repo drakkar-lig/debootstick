@@ -77,12 +77,12 @@ partition_image()
         for vol in $(ls -1d "$layout_dir"/partitions/* | sort -n)
         do
             vol_id="$(basename $vol)"
-            applied_size_kb=$(cat $vol/applied_size_kb)
+            applied_size_mb=$(cat $vol/applied_size_mb)
             fdisk_type=$(cat $vol/fdisk_type)
             partdef="type=$fdisk_type"
-            if [ $applied_size_kb -gt 0 ]
+            if [ $applied_size_mb -gt 0 ]
             then
-                partdef="size=${applied_size_kb}KiB,$partdef"
+                partdef="size=${applied_size_mb}MiB,$partdef"
             fi
             echo $partdef
         done
@@ -121,7 +121,10 @@ format_volume()
         lvm)
             # this is our LVM PV partition
             quiet pvcreate $vol_dir/device
-            quiet vgcreate $lvm_vg $vol_dir/device
+            # we have to set the physical extent size to 1M otherwise
+            # default value may be above (4M) and cause issues with
+            # our volume size calculations
+            quiet vgcreate -s 1M $lvm_vg $vol_dir/device
             ;;
     esac
 }
@@ -132,13 +135,13 @@ create_lvm_volume()
     vol_dir="$2"
 
     label=$(cat "$vol_dir/label")
-    applied_size_kb=$(cat "$vol_dir/applied_size_kb")
+    applied_size_mb=$(cat "$vol_dir/applied_size_mb")
 
-    if [ "$applied_size_kb" -eq "0" ]
+    if [ "$applied_size_mb" -eq "0" ]
     then
         quiet lvcreate -n "$label" -l 100%FREE "$lvm_vg"
     else
-        quiet lvcreate -n "$label" -L ${applied_size_kb}K "$lvm_vg"
+        quiet lvcreate -n "$label" -L ${applied_size_mb}M "$lvm_vg"
     fi
     ln -sf "/dev/$lvm_vg/$label" "$vol_dir/device"
 }
@@ -238,8 +241,8 @@ create_formatted_image()
 
     # create image file
     rm -f "$image_file"
-    stick_size_kb=$(cat $layout_dir/needed_size_kb)
-    $DD bs=1024 seek=$stick_size_kb count=0 of="$image_file"
+    stick_size_mb=$(cat $layout_dir/needed_size_mb)
+    $DD bs=$((1024*1024)) seek=$stick_size_mb count=0 of="$image_file"
 
     # create partitions
     partition_image "$image_file" "$layout_dir"

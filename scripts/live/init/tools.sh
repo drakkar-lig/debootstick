@@ -1,7 +1,7 @@
 # vim: filetype=sh
 . /dbstck.conf      # get conf
 PROGRESS_BAR_SIZE=40
-COMPUTE_PRECISION=1000
+NICE_FACTOR_SCALE=100
 VG="DBSTCK-$STICK_OS_ID"
 
 dd_min_verbose()
@@ -279,21 +279,29 @@ dump_volumes_info()
     dump_lvm_info
 }
 
-lvm_partition_size_kb()
+lvm_partition_size_mb()
 {
     dump_partition_info "$1" | while read vol_type device subtype mountpoint size
     do
         if [ "$subtype" = "lvm" ]
         then
-            device_size_kb "$device"
+            device_size_mb "$device"
             break   # done
         fi
     done
 }
 
-size_as_kb()
+lvm_sum_size_mb()
 {
-    echo $(($(echo $1 | sed -e "s/M/*1024/" -e "s/G/*1024*1024/")))
+    dump_lvm_info | while read vol_type device subtype mountpoint size
+    do
+        device_size_mb "$device"
+    done | sum_lines
+}
+
+size_as_mb()
+{
+    echo $(($(echo $1 | sed -e "s/M//" -e "s/G/*1024/")))
 }
 
 sum_lines() {
@@ -301,47 +309,46 @@ sum_lines() {
     [ "$exp" = "" ] && echo 0 || echo "$(($exp))"
 }
 
-device_size_kb() {
+device_size_mb() {
     size_b=$(blockdev --getsize64 $1)
-    echo $((size_b/1024))
+    echo $((size_b/1024/1024))
 }
 
 analysis_step1() {
     nice_factor="$1"
+    disk_size_mb="$2"
 
     while read voltype device subtype mountpoint size
     do
-        current_size_kb=$(device_size_kb $device)
+        current_size_mb=$(device_size_mb $device)
         case "$size" in
             *%)
                 # percentage
                 percent_requested=$(echo $size | tr -d '%')
-                percent=$((percent_requested*nice_factor/COMPUTE_PRECISION))
-                if [ $((current_size_kb*100)) -ge $((percent*disk_size_kb)) ]
+                size_mb=$((percent_requested*nice_factor*disk_size_mb/NICE_FACTOR_SCALE/100))
+                if [ $current_size_mb -ge $size_mb ]
                 then    # percentage too low regarding current size, convert to 'auto'
-                    echo $voltype auto $device $subtype $mountpoint $current_size_kb
-                else
-                    echo $voltype percent $percent $device $subtype $mountpoint $current_size_kb
+                    echo $voltype auto $device $subtype $mountpoint $current_size_mb
+                else    # convert to fixed size, to ease later processing
+                    echo $voltype fixed $device $subtype $mountpoint $size_mb
                 fi
                 ;;
             *[MG])
                 # fixed size
-                size_requested_kb=$(size_as_kb $size)
-                size_kb=$((size_requested_kb*nice_factor/COMPUTE_PRECISION))
-                if [ $size_kb -le $current_size_kb ]
-                then    # fixed size too low regarding current size, convert to 'auto'
-                    echo $voltype auto $device $subtype $mountpoint $current_size_kb
+                size_requested_mb=$(size_as_mb $size)
+                size_mb=$((size_requested_mb*nice_factor/NICE_FACTOR_SCALE))
+                if [ $size_mb -le $current_size_mb ]
+                then    # fixed size too low regarding current size (because of nice factor), convert to 'auto'
+                    echo $voltype auto $device $subtype $mountpoint $current_size_mb
                 else
-                    # convert to percentage of disk size, to ease later processing
-                    percent=$((size_kb*100/disk_size_kb))
-                    echo $voltype percent $percent $device $subtype $mountpoint $current_size_kb
+                    echo $voltype fixed $device $subtype $mountpoint $size_mb
                 fi
                 ;;
             max)
-                echo $voltype max $device $subtype $mountpoint $current_size_kb
+                echo $voltype max $device $subtype $mountpoint $current_size_mb
                 ;;
             auto)
-                echo $voltype auto $device $subtype $mountpoint $current_size_kb
+                echo $voltype auto $device $subtype $mountpoint $current_size_mb
                 ;;
             *)
                 echo "unknown size! '$size'" >&2
@@ -355,28 +362,34 @@ compute_applied_sizes()
 {
     volumes_type="$1"
     volumes_info="$2"
-    disk_size_kb="$3"
-    total_size_kb="$4"
+    disk_size_mb="$3"
+    total_size_mb="$4"
 
     # compute applied size of volumes
-    nice_factor=$COMPUTE_PRECISION  # init nice_factor at ratio 1.0
+    nice_factor=$NICE_FACTOR_SCALE  # init nice_factor at ratio 1.0
 
     while true
     do
-        volume_analysis_step1="$(echo "$volumes_info" | analysis_step1 $nice_factor)"
+        volume_analysis_step1="$(echo "$volumes_info" | analysis_step1 $nice_factor $disk_size_mb)"
 
-        static_size_kb=$(echo "$volume_analysis_step1" | grep -v " percent " | awk '{print $NF}' | sum_lines)
-        space_size_kb=$((total_size_kb-static_size_kb))
-        sum_percents=$(echo "$volume_analysis_step1" | grep " percent " | awk '{print $3}' | sum_lines)
+        static_size_mb=$(echo "$volume_analysis_step1" | grep -v " fixed " | awk '{print $NF}' | sum_lines)
+        space_size_mb=$((total_size_mb-static_size_mb))
+        sum_fixed_mb=$(echo "$volume_analysis_step1" | grep " fixed " | awk '{print $NF}' | sum_lines)
 
-        if [ $((sum_percents*disk_size_kb)) -gt $((space_size_kb*100)) ]
+        if [ $sum_fixed_mb -gt $space_size_mb ]
         then
-            # there is not enough free space for the sum of percents requested.
+            prev_nice_factor="$nice_factor"
+            # there is not enough free space for the sum of percents or fixed sizes requested.
             # we have to share free space in a proportional way.
-            # instead of giving each volume the percent requested, we give (percent/sum_percents*space_size_kb) kilobytes,
-            # thus the following percentage of disk size: (percent/sum_percents*space_size_kb/disk_size_kb).
-            # thus, we apply each percent requested a 'nice-factor' of (space_size_kb/(sum_percents*disk_size_kb)).
-            nice_factor=$((space_size_kb*100*COMPUTE_PRECISION/(sum_percents*disk_size_kb)))
+            # instead of giving each volume the fixed size requested (or fixed size corresponding to the percentage requested),
+            # we give (fixed_mb/sum_fixed_mb*space_size_mb) megabytes,
+            # thus, we apply each size requested a 'nice-factor' of (space_size_mb/sum_fixed_mb).
+            nice_factor=$((space_size_mb*NICE_FACTOR_SCALE/sum_fixed_mb))
+            # ensure approximation will not be a problem
+            if [ $nice_factor -ge $prev_nice_factor ]
+            then
+                nice_factor=$((prev_nice_factor-1))
+            fi
             if [ "$volumes_type" = "partition" ]
             then
                 echo "Note: requested partition sizes and percentages are too high regarding the size of this disk." >&2
@@ -393,9 +406,8 @@ compute_applied_sizes()
     do
         set -- $args
         case $sizetype in
-            "percent")
-                applied_size_kb=$(($1*disk_size_kb/100))
-                echo $voltype $2 $3 $4 $applied_size_kb
+            "fixed")
+                echo $voltype $1 $2 $3 $4
                 ;;
             "auto")
                 echo $voltype $1 $2 $3 keep
@@ -410,17 +422,17 @@ compute_applied_sizes()
 resize_last_partition()
 {
     disk="$1"
-    applied_size_kb="$2"
+    applied_size_mb="$2"
 
     eval $(partx -o NR,START,TYPE -P $disk | tail -n 1)
 
-    if [ "$applied_size_kb" = "max" ]
+    if [ "$applied_size_mb" = "max" ]
     then
         # do not specify the size => it will extend to the end of the disk
         part_def=" $NR : start=$START, type=$TYPE"
     else
         # sector size is 512 bytes
-        sector_size=$((applied_size_kb*2))
+        sector_size=$((applied_size_mb*2*1024))
         part_def=" $NR : start=$START, type=$TYPE, size=$sector_size"
     fi
 
@@ -451,9 +463,9 @@ enforce_disk_cmd() {
 resize_lvm_volume()
 {
     device="$1"
-    applied_size_kb="$2"
+    applied_size_mb="$2"
 
-    if [ "$applied_size_kb" = "max" ]
+    if [ "$applied_size_mb" = "max" ]
     then
         free_extents=$(vgs --select "vg_name = $VG" --no-headings -o vg_free_count)
         if [ $free_extents -eq 0 ]
@@ -463,7 +475,7 @@ resize_lvm_volume()
             enforce_disk_cmd lvextend -l+100%FREE "$device"
         fi
     else
-        enforce_disk_cmd lvextend -L${applied_size_kb}K "$device"
+        enforce_disk_cmd lvextend -L${applied_size_mb}M "$device"
     fi
 }
 
@@ -564,25 +576,28 @@ process_volumes() {
 
     if [ "$LVM_VOLUMES" != "" ]
     then
-        orig_lvm_part_size_kb="$(lvm_partition_size_kb "$origin_device")"
+        orig_lvm_part_size_mb="$(lvm_partition_size_mb "$origin_device")"
+        orig_lvm_sum_size_mb="$(lvm_sum_size_mb)"
+        lvm_overhead_mb="$((lvm_partition_size_mb - lvm_sum_size_mb))"  # should be 4mb
     fi
 
     echo MSG gathering partition resize data...
-    disk_size_kb="$(device_size_kb "$target_device")"
+    disk_size_mb="$(device_size_mb "$target_device")"
     volumes_info="$(dump_partition_info "$target_device")"
-    partitions_format_info="$(compute_applied_sizes partition "$volumes_info" "$disk_size_kb" "$disk_size_kb")"
+    partitions_format_info="$(compute_applied_sizes partition "$volumes_info" "$disk_size_mb" "$disk_size_mb")"
     process_part_of_volumes "$origin_device" "$target_device" "$operation" "$partitions_format_info"
 
     if [ "$LVM_VOLUMES" != "" ]
     then
         echo MSG gathering lvm volume resize data...
-        lvm_part_size_kb="$(lvm_partition_size_kb "$target_device")"
-        if [ "$((100*lvm_part_size_kb))" -lt $((105*orig_lvm_part_size_kb)) ]
+        lvm_part_size_mb="$(lvm_partition_size_mb "$target_device")"
+        if [ "$((100*lvm_part_size_mb))" -lt $((105*orig_lvm_part_size_mb)) ]
         then
             echo "MSG Note: debootstick will not try to resize lvm volumes since lvm partition was not resized (or not significantly resized)."
         else
             volumes_info="$(dump_lvm_info)"
-            lvm_format_info="$(compute_applied_sizes lvm_volume "$volumes_info" "$disk_size_kb" "$lvm_part_size_kb")"
+            lvm_available_size_mb="$((lvm_part_size_mb - lvm_overhead_mb))"
+            lvm_format_info="$(compute_applied_sizes lvm_volume "$volumes_info" "$disk_size_mb" "$lvm_available_size_mb")"
             process_part_of_volumes "$origin_device" "$target_device" "$operation" "$lvm_format_info"
         fi
     fi
