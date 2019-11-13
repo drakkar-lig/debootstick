@@ -2,10 +2,6 @@
 
 # constants
 VERSION='@VERSION@'     # updated at install time
-IMAGE_SIZE_MARGIN_KB=0  # fs size estimation is enough pessimistic
-MKSQUASHFS_OPTS="-b 1M -comp xz"
-ONE_GIGABYTE_KB=$((1024*1024))
-MAX_WORK_IMAGE_OVERHEAD_KB=$((20*ONE_GIGABYTE_KB))
 DEBUG=0
 DD="dd status=none"
 DBSTCK_DIR="/usr/share/debootstick"
@@ -241,14 +237,6 @@ fi
 cd $DBSTCK_TMPDIR
 # execute target-specific preliminary steps, if any
 optional_target_preliminary_steps
-
-# step: compute a stick size large enough for our work
-# (i.e. not for the final minimized version)
-echo -n "I: draft image - computing a size large enough... "
-fs_size_estimation_kb=$(estimated_size_kb "$ORIG_TREE")
-draft_stick_size_kb=$((fs_size_estimation_kb +
-                       MAX_WORK_IMAGE_OVERHEAD_KB))
-echo done
 
 # step: create draft image structure
 echo -n "I: draft image - partitioning and formatting... "
