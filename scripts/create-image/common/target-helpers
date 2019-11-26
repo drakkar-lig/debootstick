@@ -41,6 +41,7 @@ target_prepare_rootfs
 target_cleanup_rootfs
 target_custom_packages
 target_get_bootloader_install_command
+target_get_vg_rename_command
 EOF
 )"
 

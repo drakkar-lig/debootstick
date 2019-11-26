@@ -8,6 +8,10 @@ target_use_lvm() {
     echo true
 }
 
+target_get_vg_rename_command() {
+    echo grub_vg_rename
+}
+
 # for details about the following functions
 # see 'packages' file
 

@@ -17,6 +17,8 @@ echo "** Spanning over disk space..."
 {
     process_volumes "none" "$booted_device" "expand"
 
+    set_final_vg_name
+
     echo RETURN 0
 } | filter_quiet
 

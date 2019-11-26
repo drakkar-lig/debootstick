@@ -181,10 +181,13 @@ check_layout() {
             layout_error "cannot have several partitions with type '$special_subtype'"
     done
 
-    # if lvm volumes are declared, check that an lvm partition exists
+    # check if an lvm partition exists
+    lvm_partition_exists=$(count_attr_matches "$in_layout_dir/partitions" subtype lvm)
+
+    # if lvm volumes are declared, verify that an lvm partition was declared
     if [ $(ls -1 "$in_layout_dir/lvm_volumes" | wc -l) -gt 0 ]
     then
-        [ $(count_attr_matches "$in_layout_dir/partitions" subtype lvm) -eq 1 ] || \
+        [ $lvm_partition_exists -eq 1 ] || \
             layout_error "cannot declare lvm volumes unless you declare a partition with type lvm"
     fi
 
@@ -192,6 +195,17 @@ check_layout() {
     mountpoints="$(cat "$in_layout_dir"/*/*/mountpoint | grep -vx none)"
     [ $(echo "$mountpoints" | wc -w) -eq $(echo "$mountpoints" | uniq | wc -w) ] || \
         layout_error "repeated mount point"
+
+    # check that vg renaming can be handled
+    if [ -f "$in_layout_dir"/final_vg_name ]
+    then
+        [ $lvm_partition_exists -eq 1 ] || \
+            layout_error "cannot record LVM volume group name since LVM is not used in this disk layout"
+        if ! $target_get_vg_rename_command_exists
+        then
+            layout_error "this target does not support lvm vg renaming"
+        fi
+    fi
 }
 
 volume_is_partition() {
@@ -241,6 +255,27 @@ check_layout_updates() {
         layout_error "changing partition table type (gpt <-> dos) from default disk layout is not allowed"
 }
 
+save_lvm_vg_name() {
+    in_layout_dir="$1"
+    vg_name="$2"
+    if [ ! -z "$3" -o -z "$vg_name" ]
+    then
+        layout_error "lvm vg name declaration should be 'lvm_vg_name <vg_name>' or 'lvm_vg_name auto'"
+    fi
+    if [ "$vg_name" = "auto" ]
+    then
+        return  # nothing to do, the auto-generated vg name will be preserved
+    fi
+
+    # if string delimiters were used, remove them
+    vg_name="$(echo "$vg_name" | tr -d '"'"'")"
+    if [ ! -z "$(echo "$vg_name" | tr -d '[a-gA-Z0-9_]')" ]
+    then
+        layout_error "lvm vg name accepts only the set of chars [a-zA-Z0-9_]"
+    fi
+    echo "$vg_name" > $in_layout_dir/final_vg_name
+}
+
 parse_layout() {
     in_layout_dir="$1"
     in_layout_file="$2"
@@ -266,6 +301,9 @@ parse_layout() {
                 [ ! -f "$in_layout_dir/part_table_type" ] || \
                     layout_error "several declarations of the partition table type (gpt|dos)"
                 echo "$inst" > $in_layout_dir/part_table_type
+                ;;
+            "lvm_vg_name")
+                save_lvm_vg_name "$in_layout_dir" $args
                 ;;
             *)
                 layout_error "invalid syntax '$inst'"

@@ -8,3 +8,6 @@ partition   none       lvm     max
 
 # lvm volumes (with mountpoint, type, size)
 lvm_volume  /          ext4    max
+
+# lvm volume group name
+lvm_vg_name auto

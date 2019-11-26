@@ -119,10 +119,10 @@ get_vg_name()
 {
     case "$1" in
         "draft")
-            echo "DRAFT-$2"
+            echo "DRAFT_$2"
             ;;
         "final")
-            echo "DBSTCK-$2"
+            echo "DBSTCK_$2"
             ;;
     esac
 }

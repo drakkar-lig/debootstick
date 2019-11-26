@@ -2,7 +2,7 @@
 . /dbstck.conf      # get conf
 PROGRESS_BAR_SIZE=40
 NICE_FACTOR_SCALE=100
-VG="DBSTCK-$STICK_OS_ID"
+VG="DBSTCK_$STICK_OS_ID"
 
 dd_min_verbose()
 {
@@ -696,3 +696,30 @@ process_part_of_volumes() {
     done
 }
 
+grub_vg_rename() {
+    sed -i -e "s/$VG/$FINAL_VG_NAME/g" /boot/grub/grub.cfg
+    echo "MSG Note: File /boot/grub/grub.cfg was modified with new volume group name."
+    echo "MSG Note: If you need to reconfigure or update the bootloader, please reboot first."
+    vgrename "$VG" "$FINAL_VG_NAME"
+}
+
+set_final_vg_name()
+{
+    if [ -z "$FINAL_VG_NAME" ]
+    then
+        # nothing to do
+        return
+    fi
+
+    echo "MSG renaming the LVM volume group $VG -> $FINAL_VG_NAME..."
+    # check that final vg name does not already exist on one of the disks
+    exists=$(vgs -o vg_name --noheadings | grep -w "$FINAL_VG_NAME" | wc -l)
+    if [ "$exists" -eq 0 ]
+    then    # ok, let's do it
+        $VG_RENAME
+        echo "MSG Note: LVM volume group was successfully renamed to '$FINAL_VG_NAME'."
+        echo "MSG Note: (however some commands may still print the previous name until next reboot.)"
+    else
+        echo "WARNING: Could not rename LVM volume group because '$FINAL_VG_NAME' already exists!" >&2
+    fi
+}

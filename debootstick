@@ -316,6 +316,14 @@ LVM_VOLUMES="$(dump_lvm_volumes_info "$layout_dir")"
 IMAGE_SIZE_MB="$(cat $layout_dir/needed_size_mb)"
 EOF
 
+if [ -f "$layout_dir"/final_vg_name ]
+then
+    cat >> $final_rootfs_mountpoint/dbstck.conf << EOF
+FINAL_VG_NAME="$(cat "$layout_dir"/final_vg_name)"
+VG_RENAME="$(target_get_vg_rename_command)"
+EOF
+fi
+
 # step: customize final OS
 cd $final_rootfs_mountpoint
 final_device="$(readlink $DBSTCK_TMPDIR/final/device)"

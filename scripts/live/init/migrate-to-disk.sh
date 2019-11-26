@@ -82,6 +82,8 @@ echo "** Going on."
     echo MSG installing the bootloader...
     $BOOTLOADER_INSTALL ${TARGET}
 
+    set_final_vg_name
+
     echo RETURN 0
 } | filter_quiet
 
