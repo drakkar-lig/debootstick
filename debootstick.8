@@ -1,6 +1,6 @@
 .\" (C) Copyright 2015 Etienne Dublé <etienne.duble@imag.fr>,
 .\"
-.TH DEBOOTSTICK 8 "March 8, 2018"
+.TH DEBOOTSTICK 8 "November 26, 2019"
 .\" Please adjust this date whenever revising the manpage.
 
 .SH NAME
@@ -101,6 +101,9 @@ Ask for the root password when the system will be booted for the first time.
 .TP
 .B \-\-config\-grub\-on\-serial\-line
 Update grub configuration to show boot menu on serial line. (This is obviously PC-specific.)
+.TP
+.B \-\-disk\-layout DISK_LAYOUT_FILE
+Specify an alternate disk layout configuration file. See Section \fBDISK LAYOUTS\fP below.
 
 .SH EXAMPLES
 
@@ -200,6 +203,57 @@ It is also possible to test the UEFI boot with \fBkvm\fP, if you have the
 \fBovmf\fP package installed, by adding \fB\-bios /path/to/OVMF.fd\fP to
 the \fBkvm\fP command line.
 
+.SH DISK LAYOUTS
+
+It is possible to modify the disk layout of the system \fBdebootstick\fP generates.
+.PP
+If option \fB\-\-disk\-layout\fP is not specified, a default layout file is used,
+and the path of this file is printed.
+.br
+The preferred way to write a new layout file is to copy this default file, modify it,
+and then add option \fB\-\-disk\-layout <modified\-layout>\fP.
+.br
+An example of a modification could be to set \fB/var\fP on a different partition or
+dedicated LVM volume.
+.PP
+Notes:
+.br
+- Not all modifications are allowed. \fBdebootstick\fP will print an error message if needed.
+.br
+- Currently \fBdebootstick\fP only handles fat and ext4 filesystems.
+.PP
+About the size of a partition or lvm volume:
+.br
+- \fBauto\fP means \fBdebootstick\fP will reserve enough space for this volume, with a little
+margin. For instance, on a /boot partition with fat filesystem, it will estimate the size
+needed for the files stored there and size the partition accordingly.
+.br
+- \fB<xx>[G|M]\fP (e.g. 1G or 50M) means debootstick should allocate exactly the specified
+size to this partition/volume. Use this preferably on LVM volumes or on the last disk
+partition: since previous disk partitions cannot be resized, \fBdebootstick\fP has to
+reserve the space for them on the disk image it generates, which can make it large.
+.br
+- \fB<xx>%\fP (e.g. 10%) means debootstick should allocate the given percentage of the
+disk to this partition/volume.
+.br
+- \fBmax\fP means debootstick should allocate any remaining free space to this partition/volume.
+.PP
+Keep in mind that debootstick is supposed to generate a minimal image, and, at this time,
+it has no knowledge about the size of the device where the image will be copied.
+Using \fBmax\fP and \fB<xx>%\fP on an lvm volume and on last partition allows to ensure an
+apropriate disk layout, when the OS will expand itself over the device (or migrate),
+on first boot.
+.PP
+If LVM is used, it is possible to set a custom volume group name by using keyword \fBlvm_vg_name\fP.
+For instance, one could specify \fBlvm_vg_name "MYVG"\fP (quotes are optional).
+If not specified, or when special value \fBauto\fP is given instead of the group name,
+\fBdebootstick\fP generates a random name \fBDBSTCK_<hex\-value>\fP.
+.br
+Note that on first boot, even if a volume group name was specified, the system will first use the
+random name \fBDBSTCK_<hex\-value>\fP, and then rename it at the end of the bootup procedure.
+This allows the system to boot properly even if the target name conflicts with a volume group
+already present on a secondary disk.
+
 .SH DESIGN NOTES
 
 Many Live distributions propose a highly compressed system based on a squashfs image.
@@ -214,7 +268,7 @@ problems.
 - Storing modified files in an overlay and never releasing the room needed for
 the original versions in the squashfs image is counter-productive in the long term.
 .br
-One of the objectives behind \fBdebootstick\fP was to provide a viable long-term
+One of the objectives \fBdebootstick\fP achieves is to provide a viable long-term
 live system, therefore this kind of setup has been discarded.
 
 .SH AUTHORS
