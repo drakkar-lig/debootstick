@@ -4,6 +4,7 @@ debootstick (2.5) UNRELEASED; urgency=medium
   * Bump debhelper from old 11 to 12.
   * Set debhelper-compat version in Build-Depends.
   * Use canonical URL in Vcs-Git.
+  * Update standards version to 4.5.0, no changes needed.
 
  -- Debian Janitor <janitor@jelmer.uk>  Tue, 05 May 2020 07:03:25 +0000
 
