@@ -1,6 +1,7 @@
 debootstick (2.5) UNRELEASED; urgency=medium
 
   * Use secure URI in Homepage field.
+  * Bump debhelper from old 11 to 12.
 
  -- Debian Janitor <janitor@jelmer.uk>  Tue, 05 May 2020 07:03:25 +0000
 
