@@ -443,6 +443,35 @@ $(sfdisk -d $disk | head -n -1)
 $part_def
 EOF
     partx -u ${disk}  # notify the kernel
+
+    eval $(partx -b -o NR,SIZE -P $disk | tail -n 1)
+    if [ "$(lsblk --nodeps -o FSTYPE $disk$NR | tail -n 1)" = "vfat" ] && [ "$SIZE" -gt "32763000" ]
+    then
+        mountpoint="$(findmnt -o TARGET $disk$NR | tail -n 1)"
+
+        if [ -n "$mountpoint" ]
+        then
+            umount $disk$NR
+        fi
+
+        UUID=$(lsblk --nodeps -o UUID $disk$NR | tail -n 1)
+        UUID="$(echo $UUID | tr -d -)"
+        mkdosfs_param="-F 32 -i $UUID"
+
+        NAME=$(lsblk --nodeps -o LABEL $disk$NR | tail -n 1)
+
+        if [ -n "$NAME" ]
+        then
+            mkdosfs_param="$mkdosfs_param -n $NAME"
+        fi
+
+        mkdosfs $mkdosfs_param $disk$NR
+
+        if [ -n "$mountpoint" ]
+        then
+            mount $disk$NR $mountpoint
+        fi
+    fi
 }
 
 enforce_disk_cmd() {
