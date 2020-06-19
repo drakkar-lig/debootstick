@@ -40,6 +40,13 @@ echo -n "I: draft image - updating package manager database... "
 apt-get update -qq
 echo done
 
+# fdisk & sfdisk are part of util-linux, but on newer OS they are
+# in a dedicated package. Ensure it is installed.
+if package_exists fdisk
+then
+    PACKAGES="$PACKAGES fdisk"
+fi
+
 if [ -z "$kernel_package" ]
 then
     # kernel package not specified, install a default one

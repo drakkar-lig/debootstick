@@ -13,6 +13,11 @@ list_available_packages()
     apt-cache search "$1" | awk '{print $1}'
 }
 
+package_exists()
+{
+    [ "$(list_available_packages "^$1$")" = "$1" ]
+}
+
 # with some OS versions, package installation
 # causes many things to be printed to stderr. Some of those things
 # are just informational, others are very minor warnings.
