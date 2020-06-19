@@ -47,6 +47,23 @@ then
     PACKAGES="$PACKAGES fdisk"
 fi
 
+# if needed (a FAT partition or volume will have to grow) install
+# fatresize (package is in section 'universe' on Ubuntu).
+if [ $need_fatresize -eq 1 ]
+then
+    PACKAGES="$PACKAGES fatresize"
+    if ! package_exists fatresize
+    then
+        echo    "I: draft image - package fatresize not found."
+        echo -n "I: draft image - trying to add section universe in apt sources (for fatresize)... "
+        apt_sources_add_section universe
+        echo done
+        echo -n "I: draft image - updating package manager database again... "
+        apt-get update -qq
+        echo done
+    fi
+fi
+
 if [ -z "$kernel_package" ]
 then
     # kernel package not specified, install a default one

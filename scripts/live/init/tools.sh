@@ -512,6 +512,23 @@ quiet_resize2fs()
     fi
 }
 
+# fatresize prints a warning when it has to convert FAT16 to FAT32
+# to handle a larger size. Hide it unless the command really fails.
+quiet_fatresize()
+{
+    device="$1"
+    return_code=0
+    dev_size=$(blockdev --getsize64 "$device")
+    output="$(
+        fatresize -s $dev_size "$device" 2>&1
+    )" || return_code=$?
+    if [ $return_code -ne 0 ]
+    then
+        echo "$output" >&2
+        return $return_code
+    fi
+}
+
 get_origin_voldevice()
 {
     voldevice="$1"
@@ -647,6 +664,12 @@ process_part_of_volumes() {
                         "ext4")
                             echo MSG resizing ext4 filesystem on $dev_name...
                             quiet_resize2fs "$voldevice"
+                            ;;
+                        "fat"|"efi")
+                            echo MSG resizing FAT filesystem on $dev_name...
+                            umount "$voldevice"
+                            quiet_fatresize "$voldevice"
+                            mount "$voldevice"
                             ;;
                         "lvm")  # physical volume on a partition
                             echo MSG extending lvm physical volume on $dev_name...

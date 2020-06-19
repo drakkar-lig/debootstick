@@ -18,6 +18,19 @@ package_exists()
     [ "$(list_available_packages "^$1$")" = "$1" ]
 }
 
+apt_sources_add_section()
+{
+    section="$1"
+    if grep "^#.*\<deb[[:space:]].*${section}" /etc/apt/sources.list
+    then
+        # lines are there, but they are commented, just uncomment them
+        sed -i -e "s/^#[[:space:]#]*\(\<deb[[:space:]].*\<${section}\>\)/\1/g" /etc/apt/sources.list
+    else
+        # no lines for this section, edit lines with section main
+        sed -i -e "s/\(^[[:space:]]*deb[[:space:]].*\<main\>\)/\1 ${section}/g" /etc/apt/sources.list
+    fi
+}
+
 # with some OS versions, package installation
 # causes many things to be printed to stderr. Some of those things
 # are just informational, others are very minor warnings.

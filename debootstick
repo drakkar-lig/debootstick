@@ -234,6 +234,8 @@ then
     echo done
 fi
 
+need_fatresize=$(check_need_fatresize "$layout_dir")
+
 cd $DBSTCK_TMPDIR
 # execute target-specific preliminary steps, if any
 optional_target_preliminary_steps
@@ -279,7 +281,8 @@ with mount -o bind /etc/resolv.conf $PWD/etc/resolv.conf; do
                 config_grub_on_serial_line=$config_grub_on_serial_line  \
                 kernel_package="\"$kernel_package\""    \
                 kernel_bootargs="\"$kernel_bootargs\"" \
-                config_hostname="\"$config_hostname\""
+                config_hostname="\"$config_hostname\"" \
+                need_fatresize=$need_fatresize
     done
 done
 rm ./chrooted-customization-draft.sh

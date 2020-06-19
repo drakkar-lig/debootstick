@@ -1,6 +1,7 @@
 # vim: filetype=sh
 
 EMPTY_VOLUME_DATA_SIZE_MB=10
+MIN_GROWABLE_FAT_SIZE_MB=256
 LVM_PART_OVERHEAD_MB=4      # PV metadata size
 DISK_OVERHEAD_MB=1          # offset of 1st partition
 BIOSBOOT_PARTITION_SIZE_MB=1
@@ -339,7 +340,21 @@ estimate_minimal_vol_size_mb()
         data_size_mb=$EMPTY_VOLUME_DATA_SIZE_MB
     fi
 
-    echo $(apply_overhead $data_size_mb $vol_subtype)
+    min_size_mb=$(apply_overhead $data_size_mb $vol_subtype)
+
+    # if volume is FAT and it should grow during init procedure
+    # then ensure size is not too small.
+    # otherwise it will be FAT-12 and fatresize will not be able
+    # to handle it.
+    if ! is_fixed_size_partition $in_vol
+    then
+        if [ "$vol_subtype" = "fat" -a \
+             "$min_size_mb" -lt "$MIN_GROWABLE_FAT_SIZE_MB" ]
+        then
+            min_size_mb=$MIN_GROWABLE_FAT_SIZE_MB
+        fi
+    fi
+    echo "$min_size_mb"
 }
 
 should_extend_up_to_the_end()
@@ -541,4 +556,20 @@ dump_lvm_volumes_info() {
         vol="$in_layout_dir"/lvm_volumes/$vol_id
         echo "$(cat $vol/label);$(cat $vol/subtype);$(cat $vol/mountpoint);$(cat $vol/size)"
     done
+}
+
+check_need_fatresize() {
+    in_layout_dir="$1"
+    # all lvm volumes and last partition may grow
+    growable_volumes=$(ls -1d "$in_layout_dir"/lvm_volumes/*
+                       ls -1d "$in_layout_dir"/partitions/* | tail -n 1)
+    for vol in $growable_volumes
+    do
+        if [ $(cat $vol/subtype) = "fat" ]
+        then
+            echo 1
+            return
+        fi
+    done
+    echo 0
 }
