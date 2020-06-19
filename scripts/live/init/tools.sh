@@ -424,6 +424,13 @@ resize_last_partition()
     disk="$1"
     applied_size_mb="$2"
 
+    if [ "$(blkid -o value -s PTTYPE $disk)" = "gpt" ]
+    then
+        # move backup GPT data structures to the end of the disk, otherwise
+        # sfdisk might not allow the partition to span
+        sgdisk -e $disk
+    fi
+
     eval $(partx -o NR,START,TYPE -P $disk | tail -n 1)
 
     if [ "$applied_size_mb" = "max" ]
