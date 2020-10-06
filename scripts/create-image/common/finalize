@@ -7,7 +7,7 @@ finalize_fs()
 
     # clean up
     rm -rf proc/* sys/* dev/* tmp/* \
-            $(find run -type f) var/cache/* var/lock
+            $(find run -type f) $(ls -1d /var/cache/* | grep -v 'debconf$') var/lock            
 
     # install debootstick init hook on getty command
     getty_command="$(realpath --relative-to . "$(readlink -f sbin/getty)")"
