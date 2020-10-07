@@ -18,3 +18,6 @@ install:
 	chown root:root $(DESTDIR)/usr/sbin/debootstick
 	chmod 0755 $(DESTDIR)/usr/sbin/debootstick
 
+uninstall:
+	rm -Rf $(DSDIR)
+	rm $(DESTDIR)/usr/sbin/debootstick
