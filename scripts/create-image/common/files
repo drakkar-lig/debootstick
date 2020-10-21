@@ -23,3 +23,38 @@ ff02::1 ip6-allnodes
 ff02::2 ip6-allrouters
 EOF
 }
+
+resolv_conf_is_invalid()
+{
+    # note: we will generate a resolv.conf file if it is missing
+    # or if it is a file but no 'nameserver' directive is found.
+    # in more complex scenarios (e.g. it is a symlink), we consider
+    # the setup is OK and/or the user knows what he is doing.
+    if [ ! -e "/etc/resolv.conf" ]
+    then
+        echo 1; return
+    elif [ -f "/etc/resolv.conf" ]
+    then
+        if ! grep -q "^nameserver" /etc/resolv.conf
+        then
+            echo 1; return
+        fi
+    fi
+    echo 0  # file seems valid
+}
+
+generate_resolv_conf_file()
+{
+    # note: this generated file may be overriden later in the procedure
+    # if debootstick has to install one missing package including a DNS
+    # resolver (e.g. systemd). In any case this file is needed right
+    # know for the package downloading to succeed.
+    cat > /etc/resolv.conf << EOF
+# cloudflare
+nameserver 1.1.1.1
+# google
+nameserver 8.8.8.8
+# opendns
+nameserver 208.67.220.220
+EOF
+}

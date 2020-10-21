@@ -30,6 +30,15 @@ export DEBIAN_FRONTEND=noninteractive LANG=C
 
 optional_target_prepare_rootfs draft inside
 
+# We will need internet connectivity for package management.
+# Ensure we have a valid DNS setup.
+if [ "$(resolv_conf_is_invalid)" -eq 1 ]
+then
+    echo -n "I: draft image - generating /etc/resolv.conf (it was missing or incomplete)... "
+    generate_resolv_conf_file
+    echo done
+fi
+
 if $target_custom_packages_exists
 then
     PACKAGES="$PACKAGES $(target_custom_packages)"

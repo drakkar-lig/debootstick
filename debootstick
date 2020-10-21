@@ -269,21 +269,16 @@ mkdir -p opt/debootstick
 cp -a $DBSTCK_DIR/scripts/live opt/debootstick/live
 cp -a $DBSTCK_DIR/scripts/create-image/chrooted-customization-draft.sh .
 draft_device="$(readlink $DBSTCK_TMPDIR/draft/device)"
-# we will need internet connectivity for package
-# management in the chroot. Ensure we have a valid DNS setup there.
-[ -f etc/resolv.conf ] || touch etc/resolv.conf
-with mount -o bind /etc/resolv.conf $PWD/etc/resolv.conf; do
-    with mount -o bind /run $PWD/run; do
-        # let's start the customization
-        chroot . ./chrooted-customization-draft.sh $CHROOTED_DEBUG    \
-                "$draft_device" "$root_password_request"        \
-                stick_os_id=$STICK_OS_ID   \
-                config_grub_on_serial_line=$config_grub_on_serial_line  \
-                kernel_package="\"$kernel_package\""    \
-                kernel_bootargs="\"$kernel_bootargs\"" \
-                config_hostname="\"$config_hostname\"" \
-                need_fatresize=$need_fatresize
-    done
+with mount -o bind /run $PWD/run; do
+    # let's start the customization
+    chroot . ./chrooted-customization-draft.sh $CHROOTED_DEBUG    \
+            "$draft_device" "$root_password_request"        \
+            stick_os_id=$STICK_OS_ID   \
+            config_grub_on_serial_line=$config_grub_on_serial_line  \
+            kernel_package="\"$kernel_package\""    \
+            kernel_bootargs="\"$kernel_bootargs\"" \
+            config_hostname="\"$config_hostname\"" \
+            need_fatresize=$need_fatresize
 done
 rm ./chrooted-customization-draft.sh
 
