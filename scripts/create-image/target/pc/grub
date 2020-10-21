@@ -74,6 +74,7 @@ quiet_grub_install()
                         happy_grep -v "Found .* image:"   | \
                         happy_grep -v "lvmetad"           | \
                         happy_grep -v "etc.modprobe.d"    | \
+                        happy_grep -v "^Sourcing file"    | \
                         happy_grep -v "^done$" 1>&2
 
     # the return value we want is the one we caught

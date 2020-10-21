@@ -41,7 +41,9 @@ INSTALL_GREP_PATTERN="$(cat << EOF | tr -d '\n'
 (^update-initramfs: Generating)|(^initrd.img)|(points to)|
 (doing nothing)|(^vmlinu)|(connect to Upstart)|(policy-rc.d denied)|
 (Creating config)|(^$)|(start and stop actions)|(^Created symlink)|
-(Initializing machine ID)|(:$)|(etc.modprobe.d)
+(Initializing machine ID)|(:$)|(etc.modprobe.d)|
+(initramfs support missing)|(policy-rc.d returned 101)|
+(update-alternatives: warning: skip creation)
 EOF
 )"
 

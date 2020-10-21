@@ -204,7 +204,7 @@ undo_kpartx()
     kpartx -d "$disk_device"
 
     # update lvm knowledge about physical volumes
-    pvscan --cache
+    pvscan --cache >/dev/null
 }
 
 undo_chroot()
