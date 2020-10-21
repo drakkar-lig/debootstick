@@ -560,9 +560,14 @@ dump_lvm_volumes_info() {
 
 check_need_fatresize() {
     in_layout_dir="$1"
-    # all lvm volumes and last partition may grow
-    growable_volumes=$(ls -1d "$in_layout_dir"/lvm_volumes/*
-                       ls -1d "$in_layout_dir"/partitions/* | tail -n 1)
+    # last partition may grow
+    growable_volumes=$(ls -1d "$in_layout_dir"/partitions/* | tail -n 1)
+    # all lvm volumes may grow too
+    if [ "$(ls -1 "$in_layout_dir"/lvm_volumes | wc -l)" -gt 0 ]
+    then
+        growable_volumes="$growable_volumes $(ls -1d "$in_layout_dir"/lvm_volumes/*)"
+    fi
+    # check if one of them uses a fat filesystem
     for vol in $growable_volumes
     do
         if [ $(cat $vol/subtype) = "fat" ]

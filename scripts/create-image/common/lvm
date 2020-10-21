@@ -4,8 +4,11 @@
 # startup scripts
 tune_lvm()
 {
-    mv /etc/lvm/lvm.conf /etc/lvm/lvm.conf.saved
-    sed -e 's/\(use_.*d =\).*/\1 0/g' \
-        -e 's/udev_sync =.*/udev_sync = 0/g' \
-        /etc/lvm/lvm.conf.saved > /etc/lvm/lvm.conf
+    if [ -f /etc/lvm/lvm.conf ]
+    then
+        mv /etc/lvm/lvm.conf /etc/lvm/lvm.conf.saved
+        sed -e 's/\(use_.*d =\).*/\1 0/g' \
+            -e 's/udev_sync =.*/udev_sync = 0/g' \
+            /etc/lvm/lvm.conf.saved > /etc/lvm/lvm.conf
+    fi
 }

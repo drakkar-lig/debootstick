@@ -249,7 +249,10 @@ ask_and_set_pass()
 
 restore_lvm_conf()
 {
-    mv /etc/lvm/lvm.conf.saved /etc/lvm/lvm.conf
+    if [ -f /etc/lvm/lvm.conf.saved ]
+    then
+        mv /etc/lvm/lvm.conf.saved /etc/lvm/lvm.conf
+    fi
 }
 
 dump_partition_info()
