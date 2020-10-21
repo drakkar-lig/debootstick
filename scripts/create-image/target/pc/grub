@@ -40,6 +40,15 @@ update_grub_conf()
            -e "s/^GRUB_HIDDEN/#GRUB_HIDDEN/g" \
             /etc/default/grub
 
+    # unless already specified, set GRUB_DISABLE_OS_PROBER to true
+    # otherwise update-grub may detect and install boot entries of the host machine
+    # while debootstick is building the draft image.
+    if [ "$GRUB_DISABLE_OS_PROBER" = "" ]
+    then
+        echo >> /etc/default/grub
+        echo "GRUB_DISABLE_OS_PROBER=true" >> /etc/default/grub
+    fi
+
     # let the user know which bootargs where finally selected
     applied_kernel_cmdline=$(aggregate_kernel_cmdline $GRUB_CMDLINE_LINUX $GRUB_CMDLINE_LINUX_DEFAULT)
 }
