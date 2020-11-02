@@ -12,13 +12,12 @@ describe_os_support()
 This version of debootstick was tested successfully with the following kinds of
 chroot-environments:
 * OS for Raspberry Pi:
-    - Raspbian stretch
+    - Raspberry Pi OS (formerly "rasbian") buster
 * OS for 32 or 64 bit PCs:
-    - Debian 10 (buster) as of october 3, 2018
-    - Debian 9 (stretch)
-    - Debian 8 (jessie)
+    - Debian 11 (bullseye) as of november 2, 2020
+    - Debian 10 (buster)
+    - Ubuntu 20.10 (groovy)
+    - Ubuntu 20.04 LTS (focal)
     - Ubuntu 18.04 LTS (bionic)
-    - Ubuntu 16.04 LTS (xenial)
-    - Ubuntu 14.04 LTS (trusty)
 EOF
 }

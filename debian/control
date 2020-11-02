@@ -2,7 +2,8 @@ Source: debootstick
 Section: admin
 Priority: optional
 Maintainer: Etienne Dublé <etienne.duble@gmail.com>
-Build-Depends: debhelper-compat (= 12)
+Build-Depends: debhelper-compat (= 13)
+Rules-Requires-Root: no
 Standards-Version: 4.5.0
 Homepage: https://drakkar-lig.github.io/debootstick
 Vcs-Git: https://github.com/drakkar-lig/debootstick.git

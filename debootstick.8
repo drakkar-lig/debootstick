@@ -1,6 +1,6 @@
 .\" (C) Copyright 2015 Etienne Dublé <etienne.duble@imag.fr>,
 .\"
-.TH DEBOOTSTICK 8 "November 26, 2019"
+.TH DEBOOTSTICK 8 "November 2, 2020"
 .\" Please adjust this date whenever revising the manpage.
 
 .SH NAME
@@ -113,19 +113,19 @@ The most common workflow is the following.
 .B 1-
 Generate a chroot environment:
 .br
-\fBdebootstrap\fP \-\-variant=minbase jessie /tmp/jessie_tree
+\fBdebootstrap\fP \-\-variant=minbase buster /tmp/buster_tree
 
 .PP
 .B 2-
 (Optionally) customize it:
 .br
-\fBchroot\fP /tmp/jessie_tree; [...]; exit
+\fBchroot\fP /tmp/buster_tree; [...]; exit
 
 .PP
 .B 3-
 Generate the bootable image:
 .br
-\fBdebootstick\fP \-\-config\-root\-password\-ask /tmp/jessie_tree /tmp/img.dd
+\fBdebootstick\fP \-\-config\-root\-password\-ask /tmp/buster_tree /tmp/img.dd
 .br
 Enter root password:
 .br
@@ -165,7 +165,7 @@ In order to generate a chroot environment for a Raspberry Pi, you can use
 \fBqemu-debootstrap\fP(1):
 .br
 \fBqemu\-debootstrap\fP \-\-no\-check\-gpg \-\-arch=armhf \-\-variant=minbase
-jessie rpi\-fs http://mirrordirector.raspbian.org/raspbian
+buster rpi\-fs http://mirrordirector.raspbian.org/raspbian
 
 .PP
 Exporting the OS files from a virtual machine or a docker container is another option
@@ -240,8 +240,8 @@ disk to this partition/volume.
 .PP
 Keep in mind that debootstick is supposed to generate a minimal image, and, at this time,
 it has no knowledge about the size of the device where the image will be copied.
-Using \fBmax\fP and \fB<xx>%\fP on an lvm volume and on last partition allows to ensure an
-apropriate disk layout, when the OS will expand itself over the device (or migrate),
+Using \fBmax\fP and \fB<xx>%\fP on an lvm volume and on last partition allows one to ensure an
+appropriate disk layout, when the OS will expand itself over the device (or migrate),
 on first boot.
 .PP
 If LVM is used, it is possible to set a custom volume group name by using keyword \fBlvm_vg_name\fP.

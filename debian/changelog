@@ -1,12 +1,21 @@
-debootstick (2.5) UNRELEASED; urgency=medium
+debootstick (2.5) unstable; urgency=medium
 
-  * Use secure URI in Homepage field.
-  * Bump debhelper from old 11 to 12.
-  * Set debhelper-compat version in Build-Depends.
-  * Use canonical URL in Vcs-Git.
-  * Update standards version to 4.5.0, no changes needed.
+  * Validate support for Raspberry Pi 4
+  * Handle user-defined disk layouts (idea of D.Muhamedagic)
+  * Less aggressive guest cleanup function (thanks to Ken Gilmer)
+  * Handle resize of FAT partitions
+  * Improvement to state recovery in case of failure
+  * GPT: Relocate secondary header when resizing last partition
+  * Improve precision of size calculations
+  * Restrict image permissions to 644 (thanks to Dejan Muhamedagic)
+  * Handle latest guest OS versions
+  * Makefile improvements (by Ken Gilmer and Etienne Dublé)
+  * Improved /etc/resolv.conf handling
+  * Grub: Preferably disable OS prober while building image
+  * Obsolete code removal
+  * Documentation updates
 
- -- Debian Janitor <janitor@jelmer.uk>  Tue, 05 May 2020 07:03:25 +0000
+ -- Etienne Dublé <etienne.duble@gmail.com>  Mon, 2 Nov 2020 11:03:25 +0000
 
 debootstick (2.4) unstable; urgency=medium
 
