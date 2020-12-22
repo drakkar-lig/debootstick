@@ -1,3 +1,9 @@
+debootstick (2.5-flplv) unstable; urgency=medium
+
+  * Added support to migrating to NVMe devices
+  
+  -- Felipe Lavratti <>  Mon, 22 Dez 2020 00:32:25 -0003
+
 debootstick (2.5) unstable; urgency=medium
 
   * Validate support for Raspberry Pi 4
