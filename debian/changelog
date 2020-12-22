@@ -1,3 +1,7 @@
+debootstick (2.6) unpublished; urgency=medium
+
+  * Fix support for migrating to NVMe devices (thanks to F.Lavratti)
+
 debootstick (2.5) unstable; urgency=medium
 
   * Validate support for Raspberry Pi 4
