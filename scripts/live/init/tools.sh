@@ -89,7 +89,7 @@ get_higher_capacity_devices()
     threshold=$1
     cat /proc/partitions | while read major minor size name
     do
-        if [ "$major" = "8" ]
+        if [ "$major" = "8" ] || [ "$major" = "259" ]
         then
             if [ "$((minor % 16))" -eq 0 -a $((size*1024)) -gt $threshold ]
             then
