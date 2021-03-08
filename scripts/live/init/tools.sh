@@ -261,10 +261,10 @@ restore_lvm_conf()
 dump_partition_info()
 {
     disk_device="$1"
-    echo "$PARTITIONS" | tr ';' ' ' | while read part_id subtype mountpoint size
+    echo "$PARTITIONS" | while IFS=";" read part_id subtype mountpoint size
     do
         device="$(get_part_device $disk_device $part_id)"
-        echo "part $device $subtype $mountpoint $size"
+        echo "part;$device;$subtype;$mountpoint;$size"
     done
 }
 
@@ -272,9 +272,9 @@ dump_lvm_info()
 {
     if [ "$LVM_VOLUMES" != "" ]
     then
-        echo "$LVM_VOLUMES" | tr ';' ' ' | while read label subtype mountpoint size
+        echo "$LVM_VOLUMES" | while IFS=";" read label subtype mountpoint size
         do
-            echo "lvm /dev/$VG/$label $subtype $mountpoint $size"
+            echo "lvm;/dev/$VG/$label;$subtype;$mountpoint;$size"
         done
     fi
 }
@@ -287,7 +287,7 @@ dump_volumes_info()
 
 lvm_partition_size_mb()
 {
-    dump_partition_info "$1" | while read vol_type device subtype mountpoint size
+    dump_partition_info "$1" | while IFS=";" read vol_type device subtype mountpoint size
     do
         if [ "$subtype" = "lvm" ]
         then
@@ -299,7 +299,7 @@ lvm_partition_size_mb()
 
 lvm_sum_size_mb()
 {
-    dump_lvm_info | while read vol_type device subtype mountpoint size
+    dump_lvm_info | while IFS=";" read vol_type device subtype mountpoint size
     do
         device_size_mb "$device"
     done | sum_lines
@@ -324,7 +324,7 @@ analysis_step1() {
     nice_factor="$1"
     disk_size_mb="$2"
 
-    while read voltype device subtype mountpoint size
+    while IFS=";" read voltype device subtype mountpoint size
     do
         current_size_mb=$(device_size_mb $device)
         case "$size" in
@@ -334,9 +334,9 @@ analysis_step1() {
                 size_mb=$((percent_requested*nice_factor*disk_size_mb/NICE_FACTOR_SCALE/100))
                 if [ $current_size_mb -ge $size_mb ]
                 then    # percentage too low regarding current size, convert to 'auto'
-                    echo $voltype auto $device $subtype $mountpoint $current_size_mb
+                    echo "$voltype;auto;$device;$subtype;$mountpoint;$current_size_mb"
                 else    # convert to fixed size, to ease later processing
-                    echo $voltype fixed $device $subtype $mountpoint $size_mb
+                    echo "$voltype;fixed;$device;$subtype;$mountpoint;$size_mb"
                 fi
                 ;;
             *[MG])
@@ -345,16 +345,16 @@ analysis_step1() {
                 size_mb=$((size_requested_mb*nice_factor/NICE_FACTOR_SCALE))
                 if [ $size_mb -le $current_size_mb ]
                 then    # fixed size too low regarding current size (because of nice factor), convert to 'auto'
-                    echo $voltype auto $device $subtype $mountpoint $current_size_mb
+                    echo "$voltype;auto;$device;$subtype;$mountpoint;$current_size_mb"
                 else
-                    echo $voltype fixed $device $subtype $mountpoint $size_mb
+                    echo "$voltype;fixed;$device;$subtype;$mountpoint;$size_mb"
                 fi
                 ;;
             max)
-                echo $voltype max $device $subtype $mountpoint $current_size_mb
+                echo "$voltype;max;$device;$subtype;$mountpoint;$current_size_mb"
                 ;;
             auto)
-                echo $voltype auto $device $subtype $mountpoint $current_size_mb
+                echo "$voltype;auto;$device;$subtype;$mountpoint;$current_size_mb"
                 ;;
             *)
                 echo "unknown size! '$size'" >&2
@@ -362,6 +362,11 @@ analysis_step1() {
                 ;;
         esac
     done
+}
+
+last_field()
+{
+    awk 'BEGIN {FS = ";"}; {print $NF}'
 }
 
 compute_applied_sizes()
@@ -378,9 +383,9 @@ compute_applied_sizes()
     do
         volume_analysis_step1="$(echo "$volumes_info" | analysis_step1 $nice_factor $disk_size_mb)"
 
-        static_size_mb=$(echo "$volume_analysis_step1" | grep -v " fixed " | awk '{print $NF}' | sum_lines)
+        static_size_mb=$(echo "$volume_analysis_step1" | grep -v ";fixed;" | last_field | sum_lines)
         space_size_mb=$((total_size_mb-static_size_mb))
-        sum_fixed_mb=$(echo "$volume_analysis_step1" | grep " fixed " | awk '{print $NF}' | sum_lines)
+        sum_fixed_mb=$(echo "$volume_analysis_step1" | grep ";fixed;" | last_field | sum_lines)
 
         if [ $sum_fixed_mb -gt $space_size_mb ]
         then
@@ -408,18 +413,18 @@ compute_applied_sizes()
         fi
     done
 
-    echo "$volume_analysis_step1" | while read voltype sizetype args
+    echo "$volume_analysis_step1" | \
+            while IFS=";" read voltype sizetype device subtype mountpoint current_size_mb
     do
-        set -- $args
         case $sizetype in
             "fixed")
-                echo $voltype $1 $2 $3 $4
+                echo "$voltype;$device;$subtype;$mountpoint;$current_size_mb"
                 ;;
             "auto")
-                echo $voltype $1 $2 $3 keep
+                echo "$voltype;$device;$subtype;$mountpoint;keep"
                 ;;
             "max")
-                echo $voltype $1 $2 $3 max
+                echo "$voltype;$device;$subtype;$mountpoint;max"
                 ;;
         esac
     done
@@ -650,8 +655,8 @@ process_part_of_volumes() {
     format_info="$4"
 
     # we process lines with "applied_size=max" last (sort key)
-    echo "$format_info" | sort -k 5,5 | \
-    while read voltype voldevice subtype mountpoint applied_size
+    echo "$format_info" | sort -t ";" -k 5,5 | \
+    while IFS=";" read voltype voldevice subtype mountpoint applied_size
     do
         dev_name=$(device_name $voltype $voldevice)
         origin_voldevice=$(get_origin_voldevice $voldevice $voltype $origin_device)
