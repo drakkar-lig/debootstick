@@ -428,6 +428,11 @@ get_sector_size()
     blockdev --getss "$1"
 }
 
+get_part_table_type()
+{
+    sfdisk --dump "$1" | grep "^label:" | awk '{print $2}'
+}
+
 # this function is a little more complex than expected
 # because it has to deal with possibly different sector sizes.
 copy_partition_table()
@@ -449,7 +454,7 @@ copy_partition_table()
     fi
 
     {
-        echo "label: gpt"
+        echo "label: $(get_part_table_type $source_disk)"
         echo
         partx -o NR,START,SECTORS,TYPE -P $source_disk | while read line
         do
