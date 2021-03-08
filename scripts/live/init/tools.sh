@@ -87,14 +87,12 @@ get_booted_device_from_vg()
 get_higher_capacity_devices()
 {
     threshold=$1
-    cat /proc/partitions | while read major minor size name
+    lsblk -lno PATH,TYPE | grep -w disk | while read device type
     do
-        if [ "$major" = "8" ] || [ "$major" = "259" ]
+        device_size=$(get_device_capacity "$device")
+        if [ $device_size -gt $threshold ]
         then
-            if [ "$((minor % 16))" -eq 0 -a $((size*1024)) -gt $threshold ]
-            then
-                echo /dev/$name
-            fi
+            echo $device
         fi
     done
 }
