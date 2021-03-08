@@ -173,17 +173,16 @@ undo_losetup()
     losetup -d "$1"
 }
 
-undo_kpartx()
+undo_partx()
 {   # we assume the failsafe command was
-    # $ failsafe kpartx -a <disk_device>
+    # $ failsafe partx -a <disk_device>
     disk_device="$2"
 
     # we have to detach lvm devices associated
     # to the <disk_device>, they keep the related
     # partition in a busy state otherwise.
     # Retrieving these devices is not so easy...
-    partitions=$(kpartx -l $disk_device | \
-                    awk '{ print "/dev/mapper/"$1 }')
+    partitions=$(get_loop_device_partitions $disk_device)
     vg_names=$(pvs -o vg_name --noheadings $partitions 2>/dev/null || true)
     if [ ! -z "$vg_names" ]
     then
@@ -201,7 +200,7 @@ undo_kpartx()
 
     # we can now request the kernel to remove
     # <disk_device> partitions
-    kpartx -d "$disk_device"
+    partx -d "$disk_device"
 
     # update lvm knowledge about physical volumes
     pvscan --cache >/dev/null

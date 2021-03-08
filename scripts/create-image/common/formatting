@@ -59,10 +59,13 @@ format_ext4()
     mkfs.ext4 -F -q $label_option -b 4096 -O "none,$features" -m 2 "$device"
 }
 
-get_partition_devices()
+get_loop_device_partitions()
 {
-    image_device="$1"
-    kpartx -l $image_device | awk '{ print "/dev/mapper/"$1 }'
+    loop_device="$1"
+    partx -o NR -g "$loop_device" | while read num
+    do
+        echo "${loop_device}p$num"
+    done
 }
 
 partition_image()
@@ -154,7 +157,7 @@ format_volumes()
     device="$(readlink $work_dir/device)"
 
     # retrieve the partition devices
-    partition_devices="$(get_partition_devices $device)"
+    partition_devices="$(get_loop_device_partitions $device)"
 
     # format partitions
     i=1
@@ -252,8 +255,8 @@ create_formatted_image()
     failsafe losetup $image_device "$image_file"
     echo "undo losetup $image_device \"$image_file\"" >> $work_dir/release_info
     ln -sf "$image_device" "$work_dir/device"
-    failsafe kpartx -a $image_device
-    echo "undo kpartx -a $image_device" >> $work_dir/release_info
+    failsafe partx -a $image_device
+    echo "undo partx -a $image_device" >> $work_dir/release_info
 
     # format partitions and lvm volumes, then mount them
     format_volumes "$work_dir" "$layout_dir" "$lvm_vg"
