@@ -1,5 +1,6 @@
 debootstick (2.6) unpublished; urgency=medium
 
+  * Fix migrating to a disk with a different logical sector size
   * Support for 4K native disks, and new --sector-size option
     (thanks to S.Fiala)
   * Fix support for migrating to NVMe devices (thanks to F.Lavratti)

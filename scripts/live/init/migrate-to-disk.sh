@@ -72,9 +72,7 @@ echo "** Going on."
     done
 
     echo MSG copying the partition scheme...
-    sgdisk -Z ${TARGET}
-    sgdisk -R ${TARGET} ${ORIGIN}
-    sgdisk -G ${TARGET}
+    copy_partition_table ${ORIGIN} ${TARGET}
 
     # migrate partitions and LVM volumes
     process_volumes "${ORIGIN}" "${TARGET}" "migrate"

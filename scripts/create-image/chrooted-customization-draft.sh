@@ -1,5 +1,5 @@
 #!/bin/sh
-PACKAGES="lvm2 gdisk e2fsprogs kmod udev"
+PACKAGES="lvm2 gdisk e2fsprogs dosfstools kmod udev"
 eval "$chrooted_functions"
 probe_target_optional_functions
 start_failsafe_mode

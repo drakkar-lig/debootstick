@@ -4,13 +4,6 @@ PROGRESS_BAR_SIZE=40
 NICE_FACTOR_SCALE=100
 VG="DBSTCK_$STICK_OS_ID"
 
-dd_min_verbose()
-{
-    # status=none did not exist on old versions
-    dd status=none "$@" 2>/dev/null || \
-    dd status=noxfer "$@"
-}
-
 show_progress_bar()
 {
     achieved=$1
@@ -435,6 +428,40 @@ get_sector_size()
     blockdev --getss "$1"
 }
 
+# this function is a little more complex than expected
+# because it has to deal with possibly different sector sizes.
+copy_partition_table()
+{
+    source_disk="$1"
+    target_disk="$2"
+
+    source_disk_ss=$(get_sector_size $source_disk)
+    target_disk_ss=$(get_sector_size $target_disk)
+
+    multiplier=1
+    divider=1
+    if [ $source_disk_ss -gt $target_disk_ss ]
+    then
+        multiplier=$((source_disk_ss / target_disk_ss))
+    elif [ $target_disk_ss -gt $source_disk_ss ]
+    then
+        divider=$((target_disk_ss / source_disk_ss))
+    fi
+
+    {
+        echo "label: gpt"
+        echo
+        partx -o NR,START,SECTORS,TYPE -P $source_disk | while read line
+        do
+            eval $line
+            START=$((START*multiplier/divider))
+            SECTORS=$((SECTORS*multiplier/divider))
+            echo " $NR : start=$START, type=$TYPE, size=$SECTORS"
+        done
+    } | sfdisk --no-reread $target_disk >/dev/null
+    partx -u ${target_disk}  # notify the kernel
+}
+
 resize_last_partition()
 {
     disk="$1"
@@ -571,12 +598,86 @@ unmount_tree()
 {
     for mp in $(findmnt --list --submounts --mountpoint "$1" -o TARGET --noheadings | tac)
     do
-        echo "MSG temporarily un-mounting $mp..."
         umount $mp || umount -lf $mp || {
-            echo "MSG this failed, but everything should be fine on next reboot."
+            echo "MSG unmounting failed, but everything should be fine on next reboot."
             break
         }
     done
+}
+
+make_filesystem() {
+    voldevice="$1"
+    subtype="$2"
+    label="$3"
+    uuid="$4"
+
+    options=""
+    case "$subtype" in
+        efi|fat)
+            fstype="vfat"
+            if [ ! -z "$label" ]
+            then
+                options="-n $label"
+            fi
+            if [ ! -z "$uuid" ]
+            then
+                uuid=$(echo "$uuid" | tr -d "-")
+                options="$options -i $uuid"
+            fi
+            ;;
+        ext4)
+            fstype="ext4"
+            if [ ! -z "$label" ]
+            then
+                options="-L $label"
+            fi
+            if [ ! -z "$uuid" ]
+            then
+                options="$options -U $uuid"
+            fi
+            ;;
+    esac
+
+    mkfs -t $fstype $options "$voldevice"
+}
+
+copy_files() {
+    src_dir="$1"
+    dst_dir="$2"
+    cp -a "$src_dir/." "$dst_dir"
+}
+
+copy_partition() {
+    origin_voldevice="$1"
+    voldevice="$2"
+    subtype="$3"
+    mountpoint="$4"
+    temp_dir="$5"
+
+    # retrieve uuid & label
+    uuid="$(blkid -o value -s UUID "$origin_voldevice")"
+    label="$(blkid -o value -s LABEL "$origin_voldevice")"
+
+    # make filesystem on target
+    make_filesystem $voldevice "$subtype" "$label" "$uuid"
+
+    # (re)mount origin and target on fixed temp mountpoints
+    old_mountpoint="$temp_dir/old"
+    new_mountpoint="$temp_dir/new"
+    mkdir -p "$old_mountpoint" "$new_mountpoint"
+    if [ "$mountpoint" != "none" ]
+    then
+        unmount_tree "$mountpoint"
+    fi
+    mount "$origin_voldevice" "$old_mountpoint"
+    mount "$voldevice" "$new_mountpoint"
+
+    # copy partition files
+    copy_files "$old_mountpoint" "$new_mountpoint"
+
+    # umount temp mountpoints
+    umount "$old_mountpoint"
+    umount "$new_mountpoint"
 }
 
 get_steps() {
@@ -594,16 +695,24 @@ get_steps() {
         migrate-keep-part-lvm)
             echo "init_lvm_pv migrate_lvm"
             ;;
+        migrate-keep-part-bios)
+            # bootloader installation will initialize the target partition
+            echo "wipe_orig_part"
+            ;;
         migrate-keep-part-*)
-            echo "unmount copy_partition wipe_orig_part fsck"
+            echo "copy_partition wipe_orig_part"
             ;;
         migrate-*-part-lvm)
             # we know it is the last partition
             echo "resize_last_partition init_lvm_pv migrate_lvm"
             ;;
+        migrate-*-part-bios)    # this should be unusual!!
+            # we know it is the last partition
+            echo "resize_last_partition wipe_orig_part"
+            ;;
         migrate-*-part-*)
             # we know it is the last partition
-            echo "unmount copy_partition resize_last_partition resize_content wipe_orig_part fsck"
+            echo "resize_last_partition copy_partition wipe_orig_part"
             ;;
         migrate-keep-lvm-*)
             # nothing to do
@@ -669,6 +778,7 @@ process_part_of_volumes() {
     target_device="$2"
     operation="$3"
     format_info="$4"
+    temp_dir="$(mktemp -d)"
 
     # we process lines with "applied_size=max" last (sort key)
     echo "$format_info" | sort -t ";" -k 5,5 | \
@@ -726,24 +836,12 @@ process_part_of_volumes() {
                     ;;
                 copy_partition)
                     echo "MSG copying partition $origin_voldevice -> $voldevice..."
-                    dd_min_verbose if=$origin_voldevice of=$voldevice bs=10M
-                    ;;
-                unmount)
-                    if [ "$mountpoint" != "none" ]
-                    then
-                        unmount_tree "$mountpoint"
-                    fi
+                    copy_partition "$origin_voldevice" "$voldevice" "$subtype" \
+                                   "$mountpoint" "$temp_dir"
                     ;;
                 wipe_orig_part)
                     echo "MSG wiping $origin_voldevice..."
                     wipefs -a "$origin_voldevice"
-                    ;;
-                fsck)
-                    if [ "$mountpoint" != "none" ]
-                    then
-                        echo "MSG checking filesystem on $voldevice..."
-                        enforce_disk_cmd fsck "$voldevice"
-                    fi
                     ;;
                 *)
                     echo "MSG BUG: unexpected step '$step'!"
@@ -751,6 +849,7 @@ process_part_of_volumes() {
             esac
         done
     done
+    rm -rf "$temp_dir"
 }
 
 grub_vg_rename() {
