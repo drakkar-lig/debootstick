@@ -16,6 +16,7 @@ root_password_on_first_boot=0
 config_grub_on_serial_line=0
 system_type="live"
 layout_file="default"
+sector_size=512
 kernel_bootargs=""
 config_hostname=""
 chroot_in=""
@@ -71,6 +72,10 @@ parse_args()
             ;;
             --disk-layout)
                 layout_file="$2"
+                shift 2
+            ;;
+            --sector-size)
+                sector_size="$2"
                 shift 2
             ;;
             -*)
@@ -244,6 +249,7 @@ optional_target_preliminary_steps
 echo -n "I: draft image - partitioning and formatting... "
 create_formatted_image \
         draft \
+        $sector_size \
         "$ORIG_TREE" \
         $STICK_OS_ID
 draft_rootfs_mountpoint="$DBSTCK_TMPDIR/draft/fs"
@@ -292,6 +298,7 @@ finalize_fs $draft_rootfs_mountpoint
 echo -n "I: final image - partitioning and formatting... "
 create_formatted_image \
         final \
+        $sector_size \
         $draft_rootfs_mountpoint \
         ${STICK_OS_ID} \
         $final_image_abspath

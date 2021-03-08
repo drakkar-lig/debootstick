@@ -89,7 +89,7 @@ partition_image()
             fi
             echo $partdef
         done
-    } | sfdisk "$image_path" >/dev/null
+    } | sfdisk --no-tell-kernel "$image_path" >/dev/null
 }
 
 save_vol_uuid()
@@ -223,9 +223,10 @@ mount_volumes()
 create_formatted_image()
 {
     image_name=$1   # 'draft' or 'final'
-    target_fs="$2"
-    stick_os_id=$3
-    image_file="$4"
+    sector_size=$2
+    target_fs="$3"
+    stick_os_id=$4
+    image_file="$5"
     work_dir="$DBSTCK_TMPDIR/$image_name"
     layout_dir="$DBSTCK_TMPDIR/.layout"
     if [ -z "$image_file" ]
@@ -247,14 +248,17 @@ create_formatted_image()
     stick_size_mb=$(cat $layout_dir/needed_size_mb)
     $DD bs=$((1024*1024)) seek=$stick_size_mb count=0 of="$image_file"
 
-    # create partitions
-    partition_image "$image_file" "$layout_dir"
-
-    # let the kernel know about this device
+    # create loop device
     image_device=$(losetup -f)
-    failsafe losetup $image_device "$image_file"
-    echo "undo losetup $image_device \"$image_file\"" >> $work_dir/release_info
+    failsafe_losetup --sector-size $sector_size $image_device "$image_file"
+    echo undo losetup --sector-size $sector_size $image_device "$image_file" \
+                 >> $work_dir/release_info
+
+    # create partitions
+    partition_image "$image_device" "$layout_dir"
+
     ln -sf "$image_device" "$work_dir/device"
+    # let the kernel know about partitions of this device
     failsafe partx -a $image_device
     echo "undo partx -a $image_device" >> $work_dir/release_info
 

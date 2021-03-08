@@ -169,8 +169,8 @@ undo_mkdir()
 
 undo_losetup()
 {   # we assume the failsafe command was
-    # $ failsafe losetup <loop_device> <file>
-    losetup -d "$1"
+    # $ failsafe losetup --sector-size <sector-size> <loop_device> <file>
+    losetup -d "$3"
 }
 
 undo_partx()
@@ -214,6 +214,19 @@ undo_chroot()
 failsafe()
 {
     $* &&  echo "$*" >> $FAILSAFE_COMMANDS
+}
+
+# workaround the fact losetup sometimes fail with
+# 'resource temporarily unavailable' error.
+# (sometimes seen when using "--sector-size 4096" option)
+failsafe_losetup()
+{
+    while [ 1 ]
+    do
+        losetup "$@" 2>/dev/null && break || true
+        sleep 0.1   # retry after a short delay
+    done
+    echo losetup "$@" >> $FAILSAFE_COMMANDS
 }
 
 undo()

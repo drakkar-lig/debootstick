@@ -103,7 +103,13 @@ Ask for the root password when the system will be booted for the first time.
 Update grub configuration to show boot menu on serial line. (This is obviously PC-specific.)
 .TP
 .B \-\-disk\-layout DISK_LAYOUT_FILE
-Specify an alternate disk layout configuration file. See Section \fBDISK LAYOUTS\fP below.
+Specify an alternate disk layout configuration file. See section \fBDISK LAYOUTS\fP below.
+.TP
+.B \-\-sector\-size SECTOR_SIZE
+Specify an alternate sector size (default is 512).
+For instance, to build an image that will be flashed on a 4Kn disk, use \fB\-\-sector\-size 4096\fP.
+.br
+See section \fBDISK SECTOR SIZE\fP below.
 
 .SH EXAMPLES
 
@@ -253,6 +259,19 @@ Note that on first boot, even if a volume group name was specified, the system w
 random name \fBDBSTCK_<hex\-value>\fP, and then rename it at the end of the bootup procedure.
 This allows the system to boot properly even if the target name conflicts with a volume group
 already present on a secondary disk.
+
+.SH DISK SECTOR SIZE
+
+If the image should be flashed on a disk with non-default logical sector size (default is
+512 bytes), one may use option \fB\-\-sector\-size <value>\fP to change it.
+
+The value of option \fB\-\-sector\-size\fP should match the logical sector size of \fBthe disk the
+image will be flashed on\fP. Usually, this disk is a removable device with a logical sector size of
+512 bytes. Thus, in a vast majority of cases debootstick should generate a compatible image with its
+default option value.
+
+When using the installer mode, the fact the target disk (i.e. the disk the OS will finally migrate
+to) has a different sector size does \fBnot\fP mean the image sector size should be changed.
 
 .SH DESIGN NOTES
 

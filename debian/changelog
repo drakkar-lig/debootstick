@@ -1,5 +1,7 @@
 debootstick (2.6) unpublished; urgency=medium
 
+  * Support for 4K native disks, and new --sector-size option
+    (thanks to S.Fiala)
   * Fix support for migrating to NVMe devices (thanks to F.Lavratti)
   * Installer-mode: generic disk detection with lsblk
 
