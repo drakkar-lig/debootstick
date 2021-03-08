@@ -126,7 +126,7 @@ save_volume_info() {
             fi
             ;;
         efi)
-            echo EFI > $vol_dir/fs_label
+            echo EFI > $vol_dir/label
             ;;
     esac
     echo "$vol_type" > $vol_dir/type
