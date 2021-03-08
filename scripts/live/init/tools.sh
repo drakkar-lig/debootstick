@@ -128,8 +128,13 @@ get_device_label()
 {
     size=$(get_device_capacity $1)
     shortname=$(echo $1 | sed -e 's/\/dev\///')
-    echo $(cat /sys/class/block/$shortname/device/model) \
-         $(human_readable_disk_size $size)
+    if [ -f "/sys/class/block/$shortname/device/model" ]
+    then
+        model=$(cat /sys/class/block/$shortname/device/model)
+    else
+        model="DISK"
+    fi
+    echo $model $(human_readable_disk_size $size)
 }
 
 select_menu()
