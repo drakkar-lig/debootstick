@@ -611,9 +611,12 @@ process_volumes() {
 
     if [ "$LVM_VOLUMES" != "" ]
     then
-        orig_lvm_part_size_mb="$(lvm_partition_size_mb "$origin_device")"
+        # note: target_device variable is always available (when called from
+        # 'occupy-space.sh' and from 'migrate-to-disk.sh'); and in the later
+        # case, partition table has already been copied from origin_device.
+        orig_lvm_part_size_mb="$(lvm_partition_size_mb "$target_device")"
         orig_lvm_sum_size_mb="$(lvm_sum_size_mb)"
-        lvm_overhead_mb="$((lvm_partition_size_mb - lvm_sum_size_mb))"  # should be 4mb
+        lvm_overhead_mb="$((orig_lvm_part_size_mb - orig_lvm_sum_size_mb))"  # should be 4mb
     fi
 
     echo MSG gathering partition resize data...
