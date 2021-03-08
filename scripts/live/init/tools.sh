@@ -430,10 +430,22 @@ compute_applied_sizes()
     done
 }
 
+get_sector_size()
+{
+    blockdev --getss "$1"
+}
+
 resize_last_partition()
 {
     disk="$1"
     applied_size_mb="$2"
+    disk_sector_size=$(get_sector_size $disk)
+    partx_sector_size=512   # partx unit is always 512-bytes sectors
+
+    # note: we need to pass partition offsets and size to sfdisk
+    # using the disk sector size as unit.
+    # conversions should be carefully written to avoid integer overflows
+    # (partition offset and size may be large if converted to bytes...)
 
     if [ "$(blkid -o value -s PTTYPE $disk)" = "gpt" ]
     then
@@ -443,15 +455,16 @@ resize_last_partition()
     fi
 
     eval $(partx -o NR,START,TYPE -P $disk | tail -n 1)
+    # convert partition start offset unit from 'partx sector size' to 'disk sector size'
+    START=$((START/(disk_sector_size/partx_sector_size)))
 
     if [ "$applied_size_mb" = "max" ]
     then
         # do not specify the size => it will extend to the end of the disk
         part_def=" $NR : start=$START, type=$TYPE"
     else
-        # sector size is 512 bytes
-        sector_size=$((applied_size_mb*2*1024))
-        part_def=" $NR : start=$START, type=$TYPE, size=$sector_size"
+        part_size_in_sectors=$((applied_size_mb*(1024*1024/disk_sector_size)))
+        part_def=" $NR : start=$START, type=$TYPE, size=$part_size_in_sectors"
     fi
 
     # we delete, then re-create the partition with same information
