@@ -43,7 +43,8 @@ INSTALL_GREP_PATTERN="$(cat << EOF | tr -d '\n'
 (Creating config)|(^$)|(start and stop actions)|(^Created symlink)|
 (Initializing machine ID)|(:$)|(etc.modprobe.d)|
 (initramfs support missing)|(policy-rc.d returned 101)|
-(update-alternatives: warning: skip creation)
+(update-alternatives: warning: skip creation)|
+(Secure Boot validation state)
 EOF
 )"
 

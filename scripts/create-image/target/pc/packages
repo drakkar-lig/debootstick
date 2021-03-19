@@ -2,7 +2,15 @@
 
 custom_packages()
 {
-    echo grub-pc initramfs-tools
+    echo -n "grub-pc shim-signed initramfs-tools "
+    case "$(get_target_cpu /)" in
+    "amd64")
+        echo "grub-efi-amd64-signed"
+        ;;
+    "i386")
+        echo "grub-efi-ia32-signed"
+        ;;
+    esac
 }
 
 kernel_default_package()

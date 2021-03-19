@@ -10,18 +10,6 @@ prepare_rootfs()
         # anyway, this is only useful to avoid warnings)
         update_grup_device_map
     fi
-    if [ "$2" = "outside" ]
-    then
-        # build only for draft (because resulting files will be copied to
-        # final anyway), but configure for both draft and final
-        echo -n "I: $1 image - setting up an UEFI bootloader... "
-        if [ "$1" = "draft" ]
-        then
-            build_grub_uefi
-        fi
-        configure_grub_uefi $1
-        echo done
-    fi
 }
 
 cleanup_rootfs()

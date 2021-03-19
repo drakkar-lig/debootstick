@@ -62,6 +62,28 @@ GRUB_SERIAL_COMMAND="serial --speed=115200 --unit=0 --word=8 --parity=no --stop=
 EOF
 }
 
+get_grub_arch() {
+    case "$(get_target_cpu "/")" in
+        "amd64")
+            echo "x86_64"
+            ;;
+        "i386")
+            echo "i386"
+            ;;
+    esac
+}
+
+grub_install_uefi()
+{
+    arch=$(get_grub_arch)
+    grub-install --target=${arch}-efi --uefi-secure-boot --no-nvram --force-extra-removable
+}
+
+grub_install_bios()
+{
+    grub-install "$1"
+}
+
 quiet_grub_install()
 {
     device=$1
@@ -72,9 +94,10 @@ quiet_grub_install()
     # error stream although most of these are just
     # informational (or minor bugs). Let's discard them.
     output="$(
-        grub-install $device 2>&1   && \
-        update-initramfs -u 2>&1    && \
-        update-grub 2>&1
+        grub_install_uefi           2>&1 && \
+        grub_install_bios $device   2>&1 && \
+        update-initramfs -u         2>&1 && \
+        update-grub                 2>&1
     )" || return_code=$?
 
     echo "$output" |    happy_grep -v "No error"          | \
@@ -83,8 +106,10 @@ quiet_grub_install()
                         happy_grep -v "Found .* image:"   | \
                         happy_grep -v "lvmetad"           | \
                         happy_grep -v "etc.modprobe.d"    | \
+                        happy_grep -v "leaked on"         | \
                         happy_grep -v "^Sourcing file"    | \
                         happy_grep -v "^done$" 1>&2
+
 
     # the return value we want is the one we caught
     # earlier (or none if all went well):
@@ -119,69 +144,3 @@ install_bootloader()
     quiet_grub_install $loop_device
 }
 
-# UEFI support
-# ------------
-
-# we generate a standalone UEFI binary, used
-# for booting on UEFI systems.
-# actually, since we cannot install both grub-pc
-# and grub-efi on the embedded system (conflict),
-# we install grub-pc only. However, this binary
-# image just look for the configuration file generated
-# by the grub-pc installation and loads it. Thus
-# this UEFI configuration also stays up-to-date.
-
-uefi_binary_image_info() {
-    case "$(get_target_cpu "$ORIG_TREE")" in
-        "amd64")
-            grub_arch="x86_64-efi"
-            img_name="BOOTX64.efi"
-            ;;
-        "i386")
-            grub_arch="i386-efi"
-            img_name="BOOTIA32.efi"
-            ;;
-    esac
-    echo $grub_arch $img_name
-}
-
-build_uefi_binary_image()
-{
-    out_dir="$1"
-    set -- $(uefi_binary_image_info)
-    grub_arch="$1"
-    img_name="$2"
-    out_binary_path="$(abspath "$out_dir/$img_name")"
-    mkdir -p $DBSTCK_TMPDIR/efi/boot/grub
-    cd $DBSTCK_TMPDIR/efi
-    cat > boot/grub/grub.cfg << EOF
-insmod part_gpt
-insmod lvm
-insmod efi_gop
-insmod efi_uga
-search --set efiboot --file /EFI/BOOT/grub-dbstck-$STICK_OS_ID.cfg
-configfile (\$efiboot)/EFI/BOOT/grub-dbstck-$STICK_OS_ID.cfg
-EOF
-    grub-mkstandalone \
-            --directory="/usr/lib/grub/$grub_arch/" --format="$grub_arch"   \
-            --compress="gz" --output="$out_binary_path"            \
-            "boot/grub/grub.cfg"
-    cd - >/dev/null # return to previous dir
-}
-
-build_grub_uefi()
-{
-    mkdir -p boot/efi/EFI/BOOT/
-    build_uefi_binary_image boot/efi/EFI/BOOT/
-}
-
-configure_grub_uefi()
-{
-    image_type="$1"
-    fs_uuid=$(cat $DBSTCK_TMPDIR/$image_type/rootfs_vol/uuid)
-    grub_dbstck_path="boot/efi/EFI/BOOT/grub-dbstck-$STICK_OS_ID.cfg"
-    cat << EOF > $grub_dbstck_path
-search --set rootfs --fs-uuid $fs_uuid
-configfile (\$rootfs)/boot/grub/grub.cfg
-EOF
-}
