@@ -24,23 +24,51 @@ ff02::2 ip6-allrouters
 EOF
 }
 
-resolv_conf_is_invalid()
+ensure_valid_resolv_conf()
 {
-    # note: we will generate a resolv.conf file if it is missing
-    # or if it is a file but no 'nameserver' directive is found.
-    # in more complex scenarios (e.g. it is a symlink), we consider
-    # the setup is OK and/or the user knows what he is doing.
-    if [ ! -e "/etc/resolv.conf" ]
+    status="ok"
+
+    # check if resolv.conf is missing
+    # (we use `stat` and not [ -e [...] ] to avoid trying to
+    # dereference a broken symlink).
+    if ! stat "/etc/resolv.conf" >/dev/null 2>&1
     then
-        echo 1; return
+        status="missing"
+    # check if file is invalid (no 'nameserver' directive)
     elif [ -f "/etc/resolv.conf" ]
     then
         if ! grep -q "^nameserver" /etc/resolv.conf
         then
-            echo 1; return
+            # invalid
+            rm -f /etc/resolv.conf
+            status="missing"
         fi
     fi
-    echo 0  # file seems valid
+
+    # in more complex scenarios (e.g. it is a symlink currently broken
+    # to /run/systemd/resolve/stub-resolv.conf), we consider the setup
+    # is OK and/or the user knows what he is doing.
+
+    # in any case, we must ensure we have a valid setup during package
+    # downloads. so we temporarily move the file and replace it with
+    # an appropriate conf.
+    if [ "$status" = "ok" ]
+    then
+        mv /etc/resolv.conf /etc/resolv.conf.chroot-orig
+    fi
+
+    generate_resolv_conf_file
+
+    echo "$status" # return status to caller
+}
+
+possibly_restore_resolv_conf()
+{
+    if stat "/etc/resolv.conf.chroot-orig" >/dev/null 2>&1
+    then
+        rm -f /etc/resolv.conf
+        mv /etc/resolv.conf.chroot-orig /etc/resolv.conf
+    fi
 }
 
 generate_resolv_conf_file()

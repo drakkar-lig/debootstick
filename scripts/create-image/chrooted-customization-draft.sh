@@ -32,11 +32,10 @@ optional_target_prepare_rootfs draft inside
 
 # We will need internet connectivity for package management.
 # Ensure we have a valid DNS setup.
-if [ "$(resolv_conf_is_invalid)" -eq 1 ]
+resolv_conf_orig_status=$(ensure_valid_resolv_conf)
+if [ "$resolv_conf_orig_status" != "ok" ]
 then
-    echo -n "I: draft image - generating /etc/resolv.conf (it was missing or incomplete)... "
-    generate_resolv_conf_file
-    echo done
+    echo -n "I: draft image - generated /etc/resolv.conf (it was missing or incomplete)"
 fi
 
 if $target_custom_packages_exists
@@ -199,6 +198,8 @@ then
     echo "LC_ALL=C" > /etc/default/locale
     echo done
 fi
+
+possibly_restore_resolv_conf
 
 optional_target_cleanup_rootfs draft inside
 # umount all
