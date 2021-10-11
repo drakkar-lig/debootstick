@@ -1,14 +1,15 @@
 # vim: filetype=sh
 
-# lvm commands should not rely on external daemons in the
-# startup scripts
+# we want to allow LVM to work with devices of different
+# sector sizes.
 tune_lvm()
 {
     if [ -f /etc/lvm/lvm.conf ]
     then
-        mv /etc/lvm/lvm.conf /etc/lvm/lvm.conf.saved
-        sed -e 's/\(use_.*d =\).*/\1 0/g' \
-            -e 's/udev_sync =.*/udev_sync = 0/g' \
-            /etc/lvm/lvm.conf.saved > /etc/lvm/lvm.conf
+        if grep -q allow_mixed_block_sizes /etc/lvm/lvm.conf
+        then
+            sed -i -e 's/.*\(allow_mixed_block_sizes.*=\).*/\1 1/g' \
+                /etc/lvm/lvm.conf
+        fi
     fi
 }

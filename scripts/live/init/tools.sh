@@ -243,14 +243,6 @@ ask_and_set_pass()
     echo "root:$password" | chpasswd
 }
 
-restore_lvm_conf()
-{
-    if [ -f /etc/lvm/lvm.conf.saved ]
-    then
-        mv /etc/lvm/lvm.conf.saved /etc/lvm/lvm.conf
-    fi
-}
-
 dump_partition_info()
 {
     disk_device="$1"
