@@ -422,7 +422,7 @@ get_sector_size()
 
 get_part_table_type()
 {
-    sfdisk --dump "$1" | grep "^label:" | awk '{print $2}'
+    do_quiet_err_only sfdisk --dump "$1" | grep "^label:" | awk '{print $2}'
 }
 
 # this function is a little more complex than expected
@@ -544,14 +544,13 @@ device_name()
     fi
 }
 
-# resize2fs prints its version information on stderr, even if it succeeds.
-# make it silent unless it fails.
-quiet_resize2fs()
+# some commands print informational messages or minor warnings on stderr,
+# silence them together with stdout unless the command really fails.
+do_quiet()
 {
-    device="$1"
     return_code=0
     output="$(
-        resize2fs "$device" 2>&1
+        "$@" 2>&1
     )" || return_code=$?
     if [ $return_code -ne 0 ]
     then
@@ -560,21 +559,30 @@ quiet_resize2fs()
     fi
 }
 
+# same thing, but just filter out stderr, keep stdout
+# (if the command fails, restore stderr output).
+do_quiet_err_only()
+{
+    {
+        return_code=0
+        output="$(
+            "$@" 3>&1 1>&2 2>&3 # swap stdout <-> stderr
+        )" || return_code=$?
+        if [ $return_code -ne 0 ]
+        then
+            echo "$output" >&1
+            return $return_code
+        fi
+    } 3>&1 1>&2 2>&3 # restore stdout <-> stderr
+}
+
 # fatresize prints a warning when it has to convert FAT16 to FAT32
 # to handle a larger size. Hide it unless the command really fails.
 quiet_fatresize()
 {
     device="$1"
-    return_code=0
     dev_size=$(blockdev --getsize64 "$device")
-    output="$(
-        fatresize -s $dev_size "$device" 2>&1
-    )" || return_code=$?
-    if [ $return_code -ne 0 ]
-    then
-        echo "$output" >&2
-        return $return_code
-    fi
+    do_quiet fatresize -s $dev_size "$device"
 }
 
 get_origin_voldevice()
@@ -797,7 +805,7 @@ process_part_of_volumes() {
                     case "$subtype" in
                         "ext4")
                             echo MSG resizing ext4 filesystem on $dev_name...
-                            quiet_resize2fs "$voldevice"
+                            do_quiet resize2fs "$voldevice"
                             ;;
                         "fat"|"efi")
                             echo MSG resizing FAT filesystem on $dev_name...
@@ -875,4 +883,16 @@ set_final_vg_name()
     else
         echo "WARNING: Could not rename LVM volume group because '$FINAL_VG_NAME' already exists!" >&2
     fi
+}
+
+grub-install()
+{
+    # grub-install prints messages to standard
+    # error stream although most of these are just
+    # informational (or minor issues). This function masks
+    # the grub-install program to discard those spurious
+    # messages.
+    # caution with shebangs: bash is needed to allow a
+    # function name containing '-' char.
+    do_quiet env grub-install "$@"
 }
