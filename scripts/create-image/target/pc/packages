@@ -1,8 +1,36 @@
 # vim: filetype=sh
 
+get_debian_variant()
+{
+    if [ ! -f "/etc/os-release" ]
+    then
+        echo 'unknown'
+        return
+    fi
+    variant="$(grep -o "^ID=.*" /etc/os-release | sed -e 's/ID=//')"
+    if [ "$variant" = "" ]
+    then
+        echo 'unknown'
+        return
+    fi
+    echo "$variant"
+}
+
 custom_packages()
 {
     echo -n "grub-pc shim-signed initramfs-tools "
+    # grub-install uses lsb-release to identify the debian variant
+    # and place the boot files in appropriate [EFI-PART]/EFI/<sub-dir>.
+    # on Ubuntu, if lsb-release is missing, <sub-dir> value will default
+    # to 'debian' instead of 'ubuntu' and prevent the UEFI bootup to work.
+    # lsb-release has a significant impact on resulting image size because
+    # it depends on python3.
+    # in the case of debian, the default value selected for <subdir> is
+    # fine, so we can avoid it. for Ubuntu, we have to include it.
+    if [ "$(get_debian_variant)" != "debian" ]
+    then
+        echo "lsb-release "
+    fi
     case "$(get_target_cpu /)" in
     "amd64")
         echo "grub-efi-amd64-signed"

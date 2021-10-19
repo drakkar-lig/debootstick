@@ -44,7 +44,8 @@ INSTALL_GREP_PATTERN="$(cat << EOF | tr -d '\n'
 (Initializing machine ID)|(:$)|(etc.modprobe.d)|
 (initramfs support missing)|(policy-rc.d returned 101)|
 (update-alternatives: warning: skip creation)|
-(Secure Boot validation state)
+(Secure Boot validation state)|(if you wish to change)|
+(default time zone)|(time is now)|(Time is now)
 EOF
 )"
 
