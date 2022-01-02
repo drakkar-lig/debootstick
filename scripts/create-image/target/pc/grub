@@ -75,8 +75,15 @@ get_grub_arch() {
 
 grub_install_uefi()
 {
+    . "$fs_tree/etc/os-release"
+    if [ "$ID" = "ubuntu" ]
+    then
+        extra_removable="--removable"
+    else
+        extra_removable="--force-extra-removable"
+    fi
     arch=$(get_grub_arch)
-    grub-install --target=${arch}-efi --uefi-secure-boot --no-nvram --force-extra-removable
+    grub-install --target=${arch}-efi --uefi-secure-boot --no-nvram $extra_removable
 }
 
 grub_install_bios()
@@ -143,4 +150,3 @@ install_bootloader()
 {
     quiet_grub_install $loop_device
 }
-
