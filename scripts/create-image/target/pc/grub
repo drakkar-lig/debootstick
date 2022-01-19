@@ -105,14 +105,17 @@ quiet_grub_install()
         update-grub                 2>&1
     )" || return_code=$?
 
-    echo "$output" |    happy_grep -v "No error"          | \
-                        happy_grep -v "Installing"        | \
-                        happy_grep -v "Generating"        | \
-                        happy_grep -v "Found .* image:"   | \
-                        happy_grep -v "lvmetad"           | \
-                        happy_grep -v "etc.modprobe.d"    | \
-                        happy_grep -v "leaked on"         | \
-                        happy_grep -v "^Sourcing file"    | \
+    echo "$output" |    happy_grep -v "No error"            | \
+                        happy_grep -v "Installing"          | \
+                        happy_grep -v "Generating"          | \
+                        happy_grep -v "Found .* image:"     | \
+                        happy_grep -v "lvmetad"             | \
+                        happy_grep -v "etc.modprobe.d"      | \
+                        happy_grep -v "leaked on"           | \
+                        happy_grep -v "^Sourcing file"      | \
+                        happy_grep -v "^Warning: os-prober" | \
+                        happy_grep -v "^Systems on them"    | \
+                        happy_grep -v "^Check GRUB_DISABLE" | \
                         happy_grep -v "^done$" 1>&2
 
 
