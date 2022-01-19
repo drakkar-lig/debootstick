@@ -1,10 +1,16 @@
-debootstick (2.6) unpublished; urgency=medium
+debootstick (2.6) UNRELEASED; urgency=medium
 
-  * Fix migrating to a disk with a different logical sector size
+  * Secure-Boot support (idea of khimaros)
   * Support for 4K native disks, and new --sector-size option
     (thanks to S.Fiala)
   * Fix support for migrating to NVMe devices (thanks to F.Lavratti)
+  * Fix migrating to a disk with a different logical sector size
   * Installer-mode: generic disk detection with lsblk
+  * Fix UEFI boot on Ubuntu minbase
+  * Improved /etc/resolv.conf handling again
+  * Minor improvements and fixes
+
+ -- Etienne Dublé <etienne.duble@gmail.com>  Wed, 19 Jan 2022 16:03:25 +0000
 
 debootstick (2.5) unstable; urgency=medium
 
