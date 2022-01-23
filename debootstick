@@ -78,6 +78,10 @@ parse_args()
                 sector_size="$2"
                 shift 2
             ;;
+            --run-on-first-boot)
+                first_boot_script="$2"
+                shift 2
+            ;;
             -*)
                 echo "Unknown option '$1'. Exiting." >&2
                 exit 1
@@ -115,6 +119,15 @@ then
     if [ ! -r "$layout_file" ]
     then
         echo "disk layout file '$layout_file' not found or not readable." >&2
+        exit 1
+    fi
+fi
+
+if [ -n "$first_boot_script" ]
+then
+    if [ ! -r "${chroot_in}${first_boot_script}" ]
+    then
+        echo "First boot script file '$first_boot_script' not found or not readable in chroot." >&2
         exit 1
     fi
 fi
@@ -329,6 +342,13 @@ VG_RENAME="$(target_get_vg_rename_command)"
 EOF
 fi
 
+if [ -n "$first_boot_script" ]
+then
+    cat >> $final_rootfs_mountpoint/dbstck.conf << EOF
+FIRST_BOOT_SCRIPT="$first_boot_script"
+EOF
+fi
+
 # step: customize final OS
 cd $final_rootfs_mountpoint
 final_device="$(readlink $DBSTCK_TMPDIR/final/device)"
@@ -366,4 +386,3 @@ echo done
 chmod u+rw $final_image_abspath
 stick_size=$(real_size_human_readable $final_image_abspath)
 echo "I: $final_image_path ready (size: ${stick_size}). "
-

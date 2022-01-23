@@ -24,3 +24,8 @@ then
 else    # 'live' mode
     $INIT_SCRIPTS_DIR/occupy-space.sh
 fi
+
+if [ -n "$FIRST_BOOT_SCRIPT" ]
+then
+    $FIRST_BOOT_SCRIPT
+fi

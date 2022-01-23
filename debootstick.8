@@ -105,6 +105,10 @@ Update grub configuration to show boot menu on serial line. (This is obviously P
 .B \-\-disk\-layout DISK_LAYOUT_FILE
 Specify an alternate disk layout configuration file. See section \fBDISK LAYOUTS\fP below.
 .TP
+.B \-\-run\-on\-first\-boot FIRST_BOOT_SCRIPT_FILE
+Provide a script to be run after debootstick first init scripts. Useful for doing
+setup steps that depend on systemd.
+.TP
 .B \-\-sector\-size SECTOR_SIZE
 Specify an alternate sector size (default is 512).
 For instance, to build an image that will be flashed on a 4Kn disk, use \fB\-\-sector\-size 4096\fP.
