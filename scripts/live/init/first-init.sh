@@ -24,3 +24,9 @@ then
 else    # 'live' mode
     $INIT_SCRIPTS_DIR/occupy-space.sh
 fi
+
+if [ -n "$FIRST_BOOT_SCRIPT" ]
+then
+    echo "Running custom first boot script."
+    $FIRST_BOOT_SCRIPT
+fi
