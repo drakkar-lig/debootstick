@@ -1,4 +1,10 @@
-debootstick (2.6) UNRELEASED; urgency=medium
+debootstick (2.7) UNRELEASED; urgency=medium
+
+  * TODO
+
+ -- Etienne Dublé <etienne.duble@gmail.com>  Mon, 24 Jan 2022 09:58:00 +0000
+
+debootstick (2.6) focal impish jammy; urgency=medium
 
   * Secure-Boot support (idea of khimaros)
   * Support for 4K native disks, and new --sector-size option
