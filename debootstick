@@ -5,6 +5,10 @@ VERSION='@VERSION@'     # updated at install time
 DEBUG=0
 DD="dd status=none"
 DBSTCK_DIR="/usr/share/debootstick"
+if [ ! -d "$DBSTCK_DIR" ];then
+	CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/" >/dev/null 2>&1 && pwd)"
+	DBSTCK_DIR="$CURRENT_DIR"
+fi
 
 # get cmdline parsing and os-detection functions
 . $DBSTCK_DIR/scripts/create-image/cmdline
