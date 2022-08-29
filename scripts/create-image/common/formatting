@@ -123,11 +123,12 @@ format_volume()
             ;;
         lvm)
             # this is our LVM PV partition
-            quiet pvcreate $vol_dir/device
+            quiet pvcreate $(readlink -f "$vol_dir/device")
+
             # we have to set the physical extent size to 1M otherwise
             # default value may be above (4M) and cause issues with
             # our volume size calculations
-            quiet vgcreate -s 1M $lvm_vg $vol_dir/device
+            quiet vgcreate -s 1M $lvm_vg $(readlink -f "$vol_dir/device")
             ;;
     esac
 }
