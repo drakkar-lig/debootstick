@@ -3,6 +3,11 @@
 ARM_BINFMT_DEF=/proc/sys/fs/binfmt_misc/qemu-arm
 ERR_CPU_EMULATION="E: Cannot continue because host OS does not provide ARM cpu emulation."
 
+has_fix_binary_flag()
+{
+    cat $1 | grep "flags" | grep 'F' >/dev/null
+}
+
 prepare_rootfs_for_emulation()
 {
     if [ ! -f $ARM_BINFMT_DEF ]
@@ -10,8 +15,19 @@ prepare_rootfs_for_emulation()
         echo "$ERR_CPU_EMULATION" >&2
         return 1
     fi
+
+    if has_fix_binary_flag "$ARM_BINFMT_DEF"
+    then
+        # ok the binary of the emulator was loaded once for all when the
+        # binfmt_misc entry was registered, so emulation will be available
+        # in target too
+        # see https://www.kernel.org/doc/Documentation/admin-guide/binfmt-misc.rst
+        # the section about flag "F".
+        return
+    fi
+
     set -- $(cat $ARM_BINFMT_DEF | grep interpreter)
-    interpreter_path="$2"
+    interpreter_path="$(readlink -f $2)"
     if [ ! -f "./$interpreter_path" ]
     then
         # emulator binary is missing in target
