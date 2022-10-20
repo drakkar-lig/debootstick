@@ -10,8 +10,8 @@ export TMPDIR=/tmp
 export DEBIAN_FRONTEND=noninteractive LANG=C
 
 # classical mounts
-failsafe mount -t proc none /proc
-failsafe_mount_sys_and_dev
+failsafe mount -t proc none /proc >/dev/null
+failsafe_mount_sys_and_dev >/dev/null
 
 optional_target_prepare_rootfs final inside
 

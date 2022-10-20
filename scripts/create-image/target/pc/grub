@@ -116,6 +116,7 @@ quiet_grub_install()
                         happy_grep -v "^Warning: os-prober" | \
                         happy_grep -v "^Systems on them"    | \
                         happy_grep -v "^Check GRUB_DISABLE" | \
+                        happy_grep -v "using gzip"          | \
                         happy_grep -v "^done$" 1>&2
 
 
