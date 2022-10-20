@@ -89,6 +89,20 @@ grub_install_bios()
     grub-install "$1"
 }
 
+smart_update_initramfs()
+{
+    # initramfs files may be big, so when regenerating a new version
+    # of the file with "update-initramfs -u", there may be an error
+    # because of missing space.
+    # here we remove the previous version of the file before generating
+    # the new version.
+
+    initramfs_file=$(ls /boot | grep 'initrd.img-')
+    kernel_version=$(echo "$initramfs_file" | sed -e 's/initrd.img-//')
+    rm -f "/boot/$initramfs_file"
+    update-initramfs -c -k "$kernel_version"
+}
+
 quiet_grub_install()
 {
     device=$1
@@ -101,7 +115,7 @@ quiet_grub_install()
     output="$(
         grub_install_uefi           2>&1 && \
         grub_install_bios $device   2>&1 && \
-        update-initramfs -u         2>&1 && \
+        smart_update_initramfs      2>&1 && \
         update-grub                 2>&1
     )" || return_code=$?
 
