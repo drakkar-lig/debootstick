@@ -77,7 +77,26 @@ generate_resolv_conf_file()
     # if debootstick has to install one missing package including a DNS
     # resolver (e.g. systemd). In any case this file is needed right
     # know for the package downloading to succeed.
+    # We copy the name servers which were used on the host and also add
+    # a few public ones.
+    # The one on the host may be '127.0.0.1' (e.g. the host may be running
+    # a local service, e.g., for caching) which will work when the image
+    # is being built but not when the target image is booted.
+    # On the other hand the public nameservers may be unreachable because
+    # of firewalling.
+    # That's why we indicate all of them for more robustness.
     cat > /etc/resolv.conf << EOF
+# the following nameservers are those which were defined
+# on the machine where debootstick was run
+# ------------------------------------------------------
+EOF
+    grep nameserver /etc/resolv.conf.host >> /etc/resolv.conf
+    rm /etc/resolv.conf.host
+
+cat >> /etc/resolv.conf << EOF
+
+# the following nameservers are public ones
+# ------------------------------------------------------
 # cloudflare
 nameserver 1.1.1.1
 # google

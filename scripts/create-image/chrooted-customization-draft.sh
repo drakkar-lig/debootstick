@@ -35,7 +35,7 @@ optional_target_prepare_rootfs draft inside
 resolv_conf_orig_status=$(ensure_valid_resolv_conf)
 if [ "$resolv_conf_orig_status" != "ok" ]
 then
-    echo -n "I: draft image - generated /etc/resolv.conf (it was missing or incomplete)"
+    echo "I: draft image - generated /etc/resolv.conf (it was missing or incomplete)"
 fi
 
 if $target_custom_packages_exists

@@ -289,6 +289,9 @@ echo -n "I: draft image - generating fstab... "
 generate_fstab "$layout_dir"
 echo done
 
+# copy host resolv.conf to help generating a proper one in guest
+cp /etc/resolv.conf etc/resolv.conf.host
+
 mkdir -p opt/debootstick
 cp -a $DBSTCK_DIR/scripts/live opt/debootstick/live
 cp -a $DBSTCK_DIR/scripts/create-image/chrooted-customization-draft.sh .
