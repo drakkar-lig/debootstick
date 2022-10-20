@@ -14,10 +14,10 @@ apply_overhead() {
         ext4)
             # we use a block size of 4K (cf. file 'formatting'), so journal is at least 4M (cf. man mkfs.ext4)
             # this makes an important overhead on small filesystems.
-            apply_overhead_percent $((size_mb+7)) 12
+            apply_overhead_percent $((size_mb+8)) 15
             ;;
         fat|efi)
-            apply_overhead_percent $((size_mb+3)) 12
+            apply_overhead_percent $((size_mb+4)) 15
             ;;
     esac
 }
