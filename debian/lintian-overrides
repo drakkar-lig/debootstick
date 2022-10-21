@@ -5,4 +5,4 @@
 # (similar to python's with statements)
 # debootstick uses such a construct to rollback the
 # host system to a sane state if an unexpected issue occurs.
-debootstick: shell-script-fails-syntax-check usr/sbin/debootstick
+debootstick: shell-script-fails-syntax-check [usr/sbin/debootstick]
