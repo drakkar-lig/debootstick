@@ -62,9 +62,12 @@ install_packages()
     echo exit 101 > /usr/sbin/policy-rc.d
     chmod +x /usr/sbin/policy-rc.d
 
-    apt-get -qq --no-install-recommends -o=Dpkg::Use-Pty=0 \
-		install $packages 2>&1 >/dev/null | \
-        happy_grep -vE "$INSTALL_GREP_PATTERN" 1>&2
+    err_output="$(
+        apt-get -qq --no-install-recommends -o=Dpkg::Use-Pty=0 \
+                install $packages 2>&1 >/dev/null
+    )" || return_code=$?
+
+    echo "$err_output" | happy_grep -vE "$INSTALL_GREP_PATTERN" 1>&2
 
     # restore policy-rc.d conf
     if [ -e /usr/sbin/policy-rc.d.saved ]
@@ -73,4 +76,8 @@ install_packages()
     else
         rm /usr/sbin/policy-rc.d
     fi
+
+    # the return value we want is the one we caught
+    # earlier (or none if all went well):
+    return $return_code
 }
