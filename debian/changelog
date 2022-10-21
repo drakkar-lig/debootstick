@@ -1,4 +1,18 @@
-debootstick (2.7) UNRELEASED; urgency=medium
+debootstick (2.8) unstable; urgency=medium
+
+  * Bookworm support (thanks to ciscon@github)
+  * The package is now architecture-independent
+  * Support running from source dir (thanks to ciscon@github)
+  * Raspberry Pi guest: improve binfmt cpu emulation handling
+  * More robust guest resolv.conf
+  * Fix possible missing space error when updating large initramfs
+  * apt install: fix return code if ever it fails
+  * Disk layout sizes: increase margins for security
+  * Fix dependency issue (LP: #1981651)
+
+ -- Etienne Dublé <etienne.duble@gmail.com>  Thu, 20 Oct 2022 14:32:04 +0000
+
+debootstick (2.7) focal impish jammy; urgency=medium
 
   * New option --run-on-first-boot (thanks to S H Mohanjith)
 
