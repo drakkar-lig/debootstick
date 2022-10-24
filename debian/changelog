@@ -9,6 +9,8 @@ debootstick (2.8) unstable; urgency=medium
   * apt install: fix return code if ever it fails
   * Disk layout sizes: increase margins for security
   * Fix dependency issue (LP: #1981651)
+  * Migration: Fix issues with 'disk' or 'part' in LVM labels
+    (thanks to V.Danjean)
 
  -- Etienne Dublé <etienne.duble@gmail.com>  Thu, 20 Oct 2022 14:32:04 +0000
 

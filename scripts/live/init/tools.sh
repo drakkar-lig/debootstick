@@ -21,11 +21,13 @@ show_progress_bar()
 
 disk_partitions()
 {
-    lsblk -lno NAME,TYPE | grep -w disk | while read disk_name type
+    lsblk -lno NAME,TYPE | while read disk_name type
     do
+        test "$type" = disk || continue
         disk="/dev/$disk_name"
-        lsblk -lno NAME,TYPE $disk | grep -w part | while read part_name type
+        lsblk -lno NAME,TYPE "$disk" | while read part_name type
         do
+            test "$type" = part || continue
             part="/dev/$part_name"
             echo $disk $part
         done
@@ -80,8 +82,9 @@ get_booted_device_from_vg()
 get_higher_capacity_devices()
 {
     threshold=$1
-    lsblk -lno PATH,TYPE | grep -w disk | while read device type
+    lsblk -lno PATH,TYPE | while read device type
     do
+        test "$type" = disk || continue
         device_size=$(get_device_capacity "$device")
         if [ $device_size -gt $threshold ]
         then
