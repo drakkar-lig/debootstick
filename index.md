@@ -1,8 +1,8 @@
 Trivial example:
 ----------------
 ```
-$ debootstrap --variant=minbase bionic bionic_tree
-$ debootstick --config-root-password-none bionic_tree img.dd
+$ debootstrap --variant=minbase focal focal_tree http://archive.ubuntu.com/ubuntu/
+$ debootstick --config-root-password-none focal_tree img.dd
 $ dd if=img.dd of=/dev/<your_device> bs=10M
 ```
 Your USB device now embeds a live Ubuntu system and can be booted
@@ -12,7 +12,7 @@ From docker image to raspberry pi SD:
 -------------------------------------
 A more interesting example:
 ```
-$ docker run -it --name mycontainer --entrypoint /bin/bash eduble/rpi-stretch-mini
+$ docker run -it --name mycontainer --entrypoint /bin/bash eduble/rpi-mini
 > [... customize ...]
 > exit
 $ mkdir mycontainer_fs; cd mycontainer_fs
