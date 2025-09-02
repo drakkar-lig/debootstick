@@ -1,3 +1,9 @@
+debootstick (2.9) UNRELEASED; urgency=medium
+
+  * Minor update to error message style
+
+ -- Ken Gilmer <kgilmer@gmail.com>  Tue, 02 Sep 2025 07:53:25 -0700
+
 debootstick (2.8) unstable; urgency=medium
 
   * Bookworm support (thanks to ciscon@github)
