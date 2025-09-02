@@ -11,10 +11,11 @@ describe_os_support()
     cat << EOF
 This version of debootstick was tested successfully with the following kinds of
 chroot-environments:
-* OS for Raspberry Pi:
+* 32-bit arm Raspberry Pi:
     - Raspberry Pi OS (formerly "rasbian") bullseye
-* OS for 32 or 64 bit PCs:
-    - Debian 12 (bookworm) as of october 20, 2022
+* 64-bit amd64 systems:
+    - Debian 13 (trixie) as of September 2nd, 2025
+    - Debian 12 (bookworm)
     - Debian 11 (bullseye)
     - Ubuntu 22.10 (kinetic)
     - Ubuntu 22.04 LTS (jammy)
